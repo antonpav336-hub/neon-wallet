@@ -20,6 +20,12 @@ class WalletRulesTest {
         assertTrue(canSubmitMoneyOperation("transfer", 100L, 100L, "Alex"))
     }
 
+    @Test fun withdrawalRequiresDestinationAndAvailableBalance() {
+        assertFalse(canSubmitMoneyOperation("withdraw", 20L, 10L, "Bank"))
+        assertFalse(canSubmitMoneyOperation("withdraw", 10L, 20L, "  "))
+        assertTrue(canSubmitMoneyOperation("withdraw", 10L, 20L, "Bank"))
+    }
+
     @Test fun topupRequiresPositiveAmountAndKnownOperation() {
         assertTrue(canSubmitMoneyOperation("topup", 1L, 0L, ""))
         assertFalse(canSubmitMoneyOperation("unknown", 1L, 100L, "Alex"))
