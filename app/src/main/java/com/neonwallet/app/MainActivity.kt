@@ -74,6 +74,8 @@ private fun WalletMain(onSignOut: () -> Unit) {
     var showBalance by remember { mutableStateOf(true) }
     var dialog by remember { mutableStateOf<String?>(null) }
     var txs by remember { mutableStateOf(loadTransactions(prefs)) }
+    var cardFrozen by remember { mutableStateOf(prefs.getBoolean("card_frozen", false)) }
+    val accountEmail = remember(context) { context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE).getString("current_email", "") ?: "" }
     SideEffect {
         val array = JSONArray()
         txs.forEach { tx ->
@@ -88,12 +90,19 @@ private fun WalletMain(onSignOut: () -> Unit) {
         Box(Modifier.fillMaxSize().background(Bg)) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f)) {
-                    when (tab) {
-                        Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance },
-                            { dialog = "topup" }, { dialog = "transfer" }, txs)
-                        Tab.CARDS -> Cards()
-                        Tab.HISTORY -> History(txs)
-                        Tab.PROFILE -> Profile(onSignOut)
+                    AnimatedContent(targetState = tab, transitionSpec = {
+                        (fadeIn(tween(220)) + slideInHorizontally(tween(220)) { it / 12 }) togetherWith fadeOut(tween(150))
+                    }, label = "neon_wallet_tabs") { screen ->
+                        when (screen) {
+                            Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance },
+                                { dialog = "topup" }, { dialog = "transfer" }, { dialog = "withdraw" }, txs)
+                            Tab.CARDS -> Cards(cardFrozen) {
+                                cardFrozen = !cardFrozen
+                                prefs.edit().putBoolean("card_frozen", cardFrozen).apply()
+                            }
+                            Tab.HISTORY -> History(txs)
+                            Tab.PROFILE -> Profile(accountEmail, onSignOut)
+                        }
                     }
                 }
                 BottomBar(tab) { tab = it }
@@ -102,9 +111,13 @@ private fun WalletMain(onSignOut: () -> Unit) {
                 MoneyDialog(kind, balance, onClose = { dialog = null }) { amount, recipient ->
                     if (canSubmitMoneyOperation(kind, amount, balance, recipient)) {
                         val incoming = kind == "topup"
+                        val title = when (kind) {
+                            "topup" -> "Демо-пополнение"
+                            "withdraw" -> "Демо-вывод"
+                            else -> "Перевод · $recipient"
+                        }
                         balance += if (incoming) amount else -amount
-                        txs = (listOf(Tx(if (incoming) "Демо-пополнение" else "Перевод · $recipient",
-                            "Только что", if (incoming) amount else -amount, incoming)) + txs).take(100)
+                        txs = (listOf(Tx(title, "Только что", if (incoming) amount else -amount, incoming)) + txs).take(100)
                     }
                     dialog = null
                 }
@@ -130,7 +143,7 @@ private fun Header() {
 }
 
 @Composable
-private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () -> Unit, transfer: () -> Unit, txs: List<Tx>) {
+private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () -> Unit, transfer: () -> Unit, withdraw: () -> Unit, txs: List<Tx>) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item { Header() }
         item {
@@ -153,9 +166,10 @@ private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () 
                         Spacer(Modifier.height(8.dp))
                         Text("Демо-счёт · Российский рубль", color = Color(0xFFC7B9DB), fontSize = 12.sp)
                         Spacer(Modifier.height(24.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ActionButton("Пополнить", Icons.Default.Add, topup, true, Modifier.weight(1f))
-                            ActionButton("Перевести", Icons.Default.ArrowUpward, transfer, false, Modifier.weight(1f))
+                            ActionButton("Перевести", Icons.Default.Send, transfer, false, Modifier.weight(1f))
+                            ActionButton("Вывести", Icons.Default.SouthWest, withdraw, false, Modifier.weight(1f))
                         }
                     }
                 }
@@ -168,6 +182,7 @@ private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () 
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 QuickAction("Перевод", Icons.Default.Send, Purple, transfer, Modifier.weight(1f))
                 QuickAction("Пополнить", Icons.Default.AddCard, Green, topup, Modifier.weight(1f))
+                QuickAction("Вывести", Icons.Default.SouthWest, Color(0xFFFFB86B), withdraw, Modifier.weight(1f))
             }
         }
         item { Text("Последние операции", Modifier.padding(horizontal = 22.dp, vertical = 20.dp), color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold) }
@@ -212,8 +227,8 @@ private fun TransactionRow(tx: Tx) {
 }
 
 @Composable
-private fun Cards() {
-    Column(Modifier.fillMaxSize()) {
+private fun Cards(frozen: Boolean, onToggleFreeze: () -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Header()
         Text("Мои карты", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
         Text("Управляй своими картами", Modifier.padding(start = 22.dp, top = 5.dp), color = Muted, fontSize = 13.sp)
@@ -236,8 +251,20 @@ private fun Cards() {
             }
         }
         Spacer(Modifier.height(22.dp))
-        Text("Виртуальная карта · DEMO", Modifier.padding(horizontal = 20.dp), color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Text("Демонстрационный макет. Карта не привязана к платёжной системе.", Modifier.padding(20.dp), color = Muted, fontSize = 12.sp)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("NEON виртуальная", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(if (frozen) "Карта временно заморожена" else "Карта активна · DEMO", color = if (frozen) Color(0xFFFFB86B) else Green, fontSize = 12.sp)
+            }
+            Switch(checked = frozen, onCheckedChange = { onToggleFreeze() }, colors = SwitchDefaults.colors(checkedThumbColor = White, checkedTrackColor = Purple))
+        }
+        Text("Управление картой", Modifier.padding(start = 20.dp, top = 18.dp, bottom = 10.dp), color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = onToggleFreeze, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
+                Icon(if (frozen) Icons.Default.LockOpen else Icons.Default.AcUnit, null); Spacer(Modifier.width(6.dp)); Text(if (frozen) "Разморозить" else "Заморозить")
+            }
+        }
+        Text("Демонстрационный макет. Карта не привязана к платёжной системе; реквизиты и платежи не настоящие.", Modifier.padding(20.dp), color = Muted, fontSize = 12.sp)
     }
 }
 
@@ -252,7 +279,7 @@ private fun History(txs: List<Tx>) {
 }
 
 @Composable
-private fun Profile(onSignOut: () -> Unit) {
+private fun Profile(email: String, onSignOut: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Header()
         Text("Профиль", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
@@ -262,7 +289,7 @@ private fun Profile(onSignOut: () -> Unit) {
         }
         Spacer(Modifier.height(12.dp))
         Text("NEON USER", Modifier.align(Alignment.CenterHorizontally), color = White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-        Text("Демо-аккаунт", Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp), color = Muted, fontSize = 12.sp)
+        Text(email.ifBlank { "Локальный демо-аккаунт" }, Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp), color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(28.dp))
         listOf("Личные данные", "Безопасность", "Уведомления", "О приложении").forEachIndexed { i, label ->
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp).clip(RoundedCornerShape(15.dp)).background(Panel).clickable { }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -303,7 +330,7 @@ private fun MoneyDialog(kind: String, balance: Long, onClose: () -> Unit, onConf
         title = { Text(if (transfer) "Новый перевод" else "Пополнение", color = White, fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                OutlinedTextField(value = who, onValueChange = { who = it }, label = { Text(if (transfer) "Кому (демо)" else "Источник (демо)") }, singleLine = true,
+                OutlinedTextField(value = who, onValueChange = { who = it }, label = { Text(when (kind) { "transfer" -> "Кому (демо)"; "withdraw" -> "Куда вывести (демо)"; else -> "Источник (демо)" }) }, singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(9) }, label = { Text("Сумма в ₽") }, singleLine = true,
@@ -318,7 +345,7 @@ private fun MoneyDialog(kind: String, balance: Long, onClose: () -> Unit, onConf
                 Text("Демо-режим: реальные деньги не перемещаются.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
             }
         },
-        confirmButton = { TextButton(enabled = canSubmit, onClick = { onConfirm(parsedAmount, who.trim()) }) { Text(if (transfer) "Отправить" else "Добавить", color = Purple) } },
+        confirmButton = { TextButton(enabled = canSubmit, onClick = { onConfirm(parsedAmount, who.trim()) }) { Text(when (kind) { "transfer" -> "Отправить"; "withdraw" -> "Вывести"; else -> "Добавить" }, color = Purple) } },
         dismissButton = { TextButton(onClick = onClose) { Text("Отмена", color = Muted) } }
     )
 }
