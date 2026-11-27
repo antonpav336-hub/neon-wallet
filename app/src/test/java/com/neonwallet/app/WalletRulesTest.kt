@@ -24,4 +24,10 @@ class WalletRulesTest {
         assertTrue(canSubmitMoneyOperation("topup", 1L, 0L, ""))
         assertFalse(canSubmitMoneyOperation("unknown", 1L, 100L, "Alex"))
     }
+
+    @Test fun rejectsBalanceOverflow() {
+        assertFalse(canSubmitMoneyOperation("topup", 1L, Long.MAX_VALUE, ""))
+        assertTrue(canSubmitMoneyOperation("topup", 1L, Long.MAX_VALUE - 1L, ""))
+        assertFalse(canSubmitMoneyOperation("transfer", 1L, -1L, "Alex"))
+    }
 }
