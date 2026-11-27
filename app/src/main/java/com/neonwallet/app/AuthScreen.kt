@@ -29,6 +29,8 @@ import androidx.compose.ui.platform.LocalContext
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.compose.ui.*
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -46,9 +48,9 @@ internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () 
     var error by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF160D27), Bg, Color(0xFF090711))))) {
+    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF211C2A), Bg, Color(0xFF0B0A10))))) {\n        Image(painterResource(R.drawable.bg_neon_auth), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.28f))
         Box(Modifier.align(Alignment.TopEnd).offset(x = 65.dp, y = (-65).dp).size(240.dp).background(Purple.copy(alpha = .14f), CircleShape).blur(65.dp))
-        Box(Modifier.align(Alignment.BottomStart).offset(x = (-80).dp, y = 80.dp).size(220.dp).background(Color(0xFF5426A6).copy(alpha = .16f), CircleShape).blur(60.dp))
+        Box(Modifier.align(Alignment.BottomStart).offset(x = (-80).dp, y = 80.dp).size(220.dp).background(Color(0xFF74628F).copy(alpha = .16f), CircleShape).blur(60.dp))
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 26.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Box(Modifier.size(76.dp).shadow(24.dp, RoundedCornerShape(25.dp), ambientColor = Purple, spotColor = Purple)
@@ -56,7 +58,7 @@ internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () 
                 contentAlignment = Alignment.Center) { Icon(Icons.Default.Bolt, null, tint = White, modifier = Modifier.size(43.dp)) }
             Spacer(Modifier.height(18.dp))
             Text("NEON WALLET", color = White, fontSize = 25.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
-            Text("ТВОИ ФИНАНСЫ. ТВОИ ПРАВИЛА.", color = Color(0xFFB9A5D8), fontSize = 10.sp, letterSpacing = 1.7.sp)
+            Text("ТВОИ ФИНАНСЫ. ТВОИ ПРАВИЛА.", color = Color(0xFFC6B8DD), fontSize = 10.sp, letterSpacing = 1.7.sp)
             Spacer(Modifier.height(38.dp))
             Text(if (register) "Создать аккаунт" else "С возвращением", color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
             Text(if (register) "Зарегистрируй свой NEON ID" else "Войди, чтобы продолжить", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 7.dp, bottom = 24.dp))
