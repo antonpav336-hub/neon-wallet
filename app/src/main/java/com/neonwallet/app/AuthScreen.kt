@@ -42,7 +42,8 @@ import java.util.Locale
 @Composable
 internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () -> Unit) {
     var register by remember { mutableStateOf(false) }
-    var email by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf(prefs.getString("current_email", "") ?: "") }
+    var fullName by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
@@ -63,6 +64,10 @@ internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () 
             Spacer(Modifier.height(38.dp))
             Text(if (register) "Создать аккаунт" else "С возвращением", color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
             Text(if (register) "Зарегистрируй свой NEON ID" else "Войди, чтобы продолжить", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 7.dp, bottom = 24.dp))
+            if (register) {
+                AuthField(fullName, { fullName = it; error = "" }, "ФИО", Icons.Default.Person)
+                Spacer(Modifier.height(12.dp))
+            }
             AuthField(email, { email = it; error = "" }, "Электронная почта", Icons.Default.Email)
             Spacer(Modifier.height(12.dp))
             AuthField(password, { password = it; error = "" }, "Пароль", Icons.Default.Lock, true)
@@ -77,6 +82,7 @@ internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () 
                 val normalized = email.trim().lowercase()
                 when {
                     !android.util.Patterns.EMAIL_ADDRESS.matcher(normalized).matches() -> error = "Проверь адрес электронной почты."
+                    register && fullName.trim().split(Regex("\\s+")).size < 2 -> error = "Введи имя и фамилию полностью."
                     password.length < 8 -> error = "Пароль должен содержать минимум 8 символов."
                     register && password != confirm -> error = "Пароли не совпадают."
                     else -> {
@@ -100,7 +106,9 @@ internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () 
                                 error = "Неверная почта или пароль."
                                 busy = false
                             } else {
-                                prefs.edit().putString(key, saved).putString("current_email", normalized).apply()
+                                prefs.edit().putString(key, saved).putString("current_email", normalized)
+                                    .apply { if (register) putString("name_$normalized", fullName.trim()) }
+                                    .apply()
                                 busy = false
                                 onSuccess()
                             }
@@ -120,7 +128,7 @@ internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () 
                 }
             }
             Spacer(Modifier.height(20.dp))
-            Text("Локальный прототип аккаунта. Данные не синхронизируются между устройствами; серверная авторизация ещё не подключена.",
+            Text("Аккаунты и профиль сохраняются на этом устройстве. Для синхронизации между устройствами потребуется сервер.",
                 color = Muted, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.fillMaxWidth(),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
