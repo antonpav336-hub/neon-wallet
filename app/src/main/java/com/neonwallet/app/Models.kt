@@ -64,3 +64,16 @@ internal fun loadTransactions(prefs: android.content.SharedPreferences): List<Tx
         }
     } catch (_: Exception) { emptyList() }
 }
+
+
+internal fun shortDisplayName(fullName: String): String {
+    val parts = fullName.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    if (parts.isEmpty()) return "NEON USER"
+    return if (parts.size == 1) parts[0] else "${parts[0]} ${parts[1].first().uppercaseChar()}."
+}
+
+internal fun displayInitials(fullName: String): String {
+    val parts = fullName.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    if (parts.isEmpty()) return "N"
+    return if (parts.size == 1) parts[0].take(1).uppercase() else "${parts[0].take(1)}${parts[1].take(1)}".uppercase()
+}
