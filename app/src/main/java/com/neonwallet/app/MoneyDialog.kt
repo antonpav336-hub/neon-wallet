@@ -71,6 +71,7 @@ internal fun MoneyDialog(
     var amount by remember { mutableStateOf("") }
     var recipient by remember { mutableStateOf("") }
     var bank by remember { mutableStateOf("NEON") }
+    var message by remember { mutableStateOf("") }
     var stage by remember { mutableStateOf("editing") }
     var failure by remember { mutableStateOf<String?>(null) }
     var receiptId by remember { mutableStateOf("") }
@@ -211,6 +212,27 @@ internal fun MoneyDialog(
                                         Icon(Icons.Default.StarBorder, null, tint = Purple)
                                         Spacer(Modifier.width(6.dp))
                                         Text("Добавить в избранное", color = Purple)
+                                    }
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("Сообщение получателю", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    OutlinedTextField(
+                                        value = message,
+                                        onValueChange = { message = it.take(120) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        label = { Text("Необязательно") },
+                                        placeholder = { Text("Например, спасибо!") },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = neonFieldColors()
+                                    )
+                                    Row(
+                                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        listOf("🤝 Спасибо", "☕ За кофе", "🎁 На подарок").forEach { preset ->
+                                            RecipientChip(preset, message == preset) { message = preset }
+                                        }
                                     }
                                 }
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
