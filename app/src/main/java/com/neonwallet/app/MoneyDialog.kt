@@ -1,6 +1,11 @@
 package com.neonwallet.app
 
 import android.content.Intent
+import android.provider.ContactsContract
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.RepeatMode
@@ -66,12 +71,18 @@ internal fun MoneyDialog(
     onClose: () -> Unit,
     onBegin: () -> Boolean,
     onFinish: () -> Unit,
-    onConfirm: (Long, String, String) -> Boolean
+    onConfirm: (Long, String, String) -> Boolean,
+    initialRecipient: String = ""
 ) {
     var amount by remember { mutableStateOf("") }
-    var recipient by remember { mutableStateOf("") }
+    var recipient by remember { mutableStateOf(initialRecipient) }
     var bank by remember { mutableStateOf("NEON") }
     var message by remember { mutableStateOf("") }
+    var contactList by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    var showContacts by remember { mutableStateOf(false) }
+    val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) { contactList = readPhoneContacts(context); showContacts = true }
+    }
     var stage by remember { mutableStateOf("editing") }
     var failure by remember { mutableStateOf<String?>(null) }
     var receiptId by remember { mutableStateOf("") }
@@ -147,7 +158,7 @@ internal fun MoneyDialog(
                             kind, parsedAmount, recipient, bank, receiptTime, receiptId,
                             onCopy = { clipboard.setText(AnnotatedString(receiptId)) },
                             onShare = {
-                                val receipt = "NEON WALLET · ДЕМО-ЧЕК\nОперация: $action\nСумма: $parsedAmount ₽\nПолучатель: $recipient\nБанк: $bank\nСообщение: ${message.ifBlank { "—" }}\nВремя: $receiptTime\nID: $receiptId\nДемо-режим: реальные деньги не перемещались."
+                                val receipt = "NEON WALLET\nОперация: $action\nСумма: $parsedAmount ₽\nПолучатель: $recipient\nБанк: $bank\nСообщение: ${message.ifBlank { "—" }}\nВремя: $receiptTime\nID: $receiptId"
                                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_TEXT, receipt)
@@ -193,6 +204,21 @@ internal fun MoneyDialog(
                                     (listOf("Alex", "Мама", "Самому себе") + favorites).distinct().forEach { name ->
                                         RecipientChip(name, recipient == name) { recipient = name; failure = null }
                                     }
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                                            contactList = readPhoneContacts(context)
+                                            showContacts = true
+                                        } else contactsPermission.launch(android.Manifest.permission.READ_CONTACTS)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    border = BorderStroke(1.dp, Purple.copy(alpha = .55f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = White)
+                                ) {
+                                    Icon(Icons.Default.Contacts, null, tint = Purple)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Выбрать из контактов")
                                 }
                                 OutlinedTextField(
                                     value = recipient,
@@ -287,11 +313,6 @@ internal fun MoneyDialog(
                                 )
                                 if (failure != null) Text(failure!!, color = Color(0xFFFF858D), fontSize = 12.sp)
                             }
-                            Text(
-                                "NEON WALLET · ДЕМО-РЕЖИМ. Реальные деньги не перемещаются.",
-                                color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
-                            )
                         }
                     }
                 }
@@ -356,6 +377,57 @@ internal fun MoneyDialog(
             }
         }
     }
+    if (showContacts) {
+        AlertDialog(
+            onDismissRequest = { showContacts = false },
+            containerColor = Panel,
+            title = { Text("Контакты", color = White, fontWeight = FontWeight.Bold) },
+            text = {
+                if (contactList.isEmpty()) Text("В телефонной книге пока нет контактов с номерами.", color = Muted)
+                else Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                    contactList.forEach { (name, phone) ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable {
+                                recipient = phone
+                                showContacts = false
+                                failure = null
+                            }.padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(Modifier.size(38.dp).clip(CircleShape).background(Purple.copy(alpha = .22f)), contentAlignment = Alignment.Center) {
+                                Text(name.firstOrNull()?.uppercase() ?: "?", color = Purple, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(name, color = White, fontSize = 14.sp)
+                                Text(phone, color = Muted, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showContacts = false }) { Text("Закрыть", color = Purple) } }
+        )
+    }
+}
+
+private fun readPhoneContacts(context: android.content.Context): List<Pair<String, String>> {
+    val result = mutableListOf<Pair<String, String>>()
+    val cursor = context.contentResolver.query(
+        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+        arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER),
+        null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE LOCALIZED ASC"
+    )
+    cursor?.use {
+        val nameIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+        val phoneIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+        while (it.moveToNext() && result.size < 250) {
+            val name = if (nameIndex >= 0) it.getString(nameIndex).orEmpty() else ""
+            val phone = if (phoneIndex >= 0) it.getString(phoneIndex).orEmpty() else ""
+            if (name.isNotBlank() && phone.isNotBlank()) result.add(name to phone)
+        }
+    }
+    return result.distinctBy { it.second }
 }
 
 @Composable
