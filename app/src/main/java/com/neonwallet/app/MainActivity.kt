@@ -30,9 +30,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.compose.ui.*
@@ -44,7 +41,17 @@ import java.text.NumberFormat
 import java.util.Locale
 
 
+private object WalletSession {
+    // Remains unlocked while the process is alive; reset when the task is actually finished.
+    var unlocked: Boolean = false
+}
+
 class MainActivity : ComponentActivity() {
+    override fun onDestroy() {
+        if (isFinishing && !isChangingConfigurations) WalletSession.unlocked = false
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { NeonWalletApp() }
@@ -55,28 +62,25 @@ class MainActivity : ComponentActivity() {
 fun NeonWalletApp() {
     val context = LocalContext.current
     val authPrefs = remember(context) { context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE) }
-    val lifecycleOwner = LocalLifecycleOwner.current
     var signedIn by remember { mutableStateOf(authPrefs.getBoolean("signed_in", false)) }
-    var pinUnlocked by remember { mutableStateOf(false) }
-    DisposableEffect(lifecycleOwner, signedIn) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP && signedIn) pinUnlocked = false
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+    var pinUnlocked by remember { mutableStateOf(WalletSession.unlocked) }
     if (!signedIn) {
         AuthScreen(authPrefs) {
             authPrefs.edit().putBoolean("signed_in", true).apply()
             signedIn = true
+            WalletSession.unlocked = false
             pinUnlocked = false
         }
     } else if (!pinUnlocked) {
-        PinGateScreen(authPrefs, setup = !authPrefs.contains("pin_hash")) { pinUnlocked = true }
+        PinGateScreen(authPrefs, setup = !authPrefs.contains("pin_hash")) {
+            WalletSession.unlocked = true
+            pinUnlocked = true
+        }
     } else {
         WalletMain {
             authPrefs.edit().putBoolean("signed_in", false).apply()
             signedIn = false
+            WalletSession.unlocked = false
             pinUnlocked = false
         }
     }
