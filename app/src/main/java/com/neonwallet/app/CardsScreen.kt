@@ -82,7 +82,7 @@ internal fun Cards(frozen: Boolean, cardLimit: Long, onToggleFreeze: () -> Unit,
             Switch(checked = frozen, onCheckedChange = { onToggleFreeze() }, colors = SwitchDefaults.colors(checkedThumbColor = White, checkedTrackColor = Purple))
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { showDetails = !showDetails }) { Icon(if (showDetails) Icons.Default.VisibilityOff else Icons.Default.Visibility, null); Spacer(Modifier.width(6.dp)); Text(if (showDetails) "Скрыть демо-реквизиты" else "Показать демо-реквизиты") }
+            TextButton(onClick = { showDetails = !showDetails }) { Icon(if (showDetails) Icons.Default.VisibilityOff else Icons.Default.Visibility, null); Spacer(Modifier.width(6.dp)); Text(if (showDetails) "Скрыть реквизиты" else "Показать реквизиты") }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) { Text("Лимит на одну оплату", color = White, fontSize = 14.sp); Text(money(cardLimit), color = Purple, fontWeight = FontWeight.Bold) }
@@ -99,7 +99,7 @@ internal fun Cards(frozen: Boolean, cardLimit: Long, onToggleFreeze: () -> Unit,
         }
         Text("Демонстрационный макет. Карта не привязана к платёжной системе; реквизиты и платежи не настоящие.", Modifier.padding(20.dp), color = Muted, fontSize = 12.sp)
     }
-    if (showLimitEditor) AlertDialog(onDismissRequest = { showLimitEditor = false }, containerColor = Panel, title = { Text("Лимит демо-карты", color = White) }, text = { OutlinedTextField(value = limitInput, onValueChange = { limitInput = it.filter(Char::isDigit).take(9) }, label = { Text("Лимит в ₽") }, singleLine = true) }, confirmButton = { TextButton(onClick = { limitInput.toLongOrNull()?.let(onLimitChange); showLimitEditor = false }) { Text("Сохранить", color = Purple) } }, dismissButton = { TextButton(onClick = { showLimitEditor = false }) { Text("Отмена", color = Muted) } })
+    if (showLimitEditor) AlertDialog(onDismissRequest = { showLimitEditor = false }, containerColor = Panel, title = { Text("Лимит карты", color = White) }, text = { OutlinedTextField(value = limitInput, onValueChange = { limitInput = it.filter(Char::isDigit).take(9) }, label = { Text("Лимит в ₽") }, singleLine = true) }, confirmButton = { TextButton(onClick = { limitInput.toLongOrNull()?.let(onLimitChange); showLimitEditor = false }) { Text("Сохранить", color = Purple) } }, dismissButton = { TextButton(onClick = { showLimitEditor = false }) { Text("Отмена", color = Muted) } })
 }
 
 @Composable
