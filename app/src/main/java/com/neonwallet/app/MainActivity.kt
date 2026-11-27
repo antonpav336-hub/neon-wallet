@@ -24,12 +24,12 @@ import androidx.compose.ui.unit.*
 import java.text.NumberFormat
 import java.util.Locale
 
-private val Bg = Color(0xFF090711)
-private val Panel = Color(0xFF171323)
-private val Purple = Color(0xFF9B5CFF)
-private val Muted = Color(0xFF9B94AA)
-private val White = Color(0xFFF7F3FF)
-private val Green = Color(0xFF48D7A0)
+private val Bg = Color(0xFF0D0B12)
+private val Panel = Color(0xFF19161F)
+private val Purple = Color(0xFFB49AF5)
+private val Muted = Color(0xFFA39CAB)
+private val White = Color(0xFFF6F2F8)
+private val Green = Color(0xFF72CBA8)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,7 +92,7 @@ fun NeonWalletApp() {
 @Composable
 private fun Header() {
     Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(Purple, Color(0xFF5426A6))), CircleShape), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(Purple, Color(0xFF79659A))), CircleShape), contentAlignment = Alignment.Center) {
             Icon(Icons.Default.Bolt, null, tint = White, modifier = Modifier.size(25.dp))
         }
         Spacer(Modifier.width(11.dp))
@@ -114,8 +114,8 @@ private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () 
                 Text("ТВОИ ФИНАНСЫ", color = Muted, fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(12.dp))
                 Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF3C1C68), Color(0xFF21143D), Color(0xFF151020))))
-                    .border(1.dp, Color(0xFF8050C5).copy(alpha = .45f), RoundedCornerShape(28.dp)).padding(22.dp)) {
+                    .background(Brush.linearGradient(listOf(Color(0xFF30263F), Color(0xFF211C2B), Color(0xFF17141D))))
+                    .border(1.dp, Color(0xFFB49AF5).copy(alpha = .22f), RoundedCornerShape(28.dp)).padding(22.dp)) {
                     Box(Modifier.align(Alignment.TopEnd).size(130.dp).offset(x = 42.dp, y = (-45).dp).background(Purple.copy(alpha = .12f), CircleShape).blur(2.dp))
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -154,7 +154,7 @@ private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () 
 
 @Composable
 private fun ActionButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, action: () -> Unit, filled: Boolean, modifier: Modifier = Modifier) {
-    Button(onClick = action, modifier = modifier.height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = if (filled) Purple else Color(0xFF33244C)), shape = RoundedCornerShape(15.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
+    Button(onClick = action, modifier = modifier.height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = if (filled) Purple else Color(0xFF393142)), shape = RoundedCornerShape(15.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
         Icon(icon, null, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(7.dp)); Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
@@ -195,7 +195,7 @@ private fun Cards() {
         Text("Управляй своими картами", Modifier.padding(start = 22.dp, top = 5.dp), color = Muted, fontSize = 13.sp)
         Spacer(Modifier.height(24.dp))
         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(205.dp).clip(RoundedCornerShape(26.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF7D43D8), Color(0xFF32165C), Color(0xFF160E26))))
+            .background(Brush.linearGradient(listOf(Color(0xFF74618F), Color(0xFF40334F), Color(0xFF211B29))))
             .border(1.dp, Color(0xFFB58BFF).copy(alpha = .4f), RoundedCornerShape(26.dp)).padding(22.dp)) {
             Column(Modifier.fillMaxHeight()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -233,7 +233,7 @@ private fun Profile() {
         Header()
         Text("Профиль", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(24.dp))
-        Box(Modifier.align(Alignment.CenterHorizontally).size(82.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Purple, Color(0xFF5426A6))), CircleShape), contentAlignment = Alignment.Center) {
+        Box(Modifier.align(Alignment.CenterHorizontally).size(82.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Purple, Color(0xFF79659A))), CircleShape), contentAlignment = Alignment.Center) {
             Text("N", color = White, fontSize = 35.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.height(12.dp))
@@ -251,7 +251,7 @@ private fun Profile() {
 
 @Composable
 private fun BottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
-    Row(Modifier.fillMaxWidth().background(Color(0xFF100D18)).navigationBarsPadding().padding(horizontal = 8.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceAround) {
+    Row(Modifier.fillMaxWidth().background(Color(0xFF15121A)).navigationBarsPadding().padding(horizontal = 8.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceAround) {
         listOf(Triple(Tab.HOME, Icons.Default.Home, "Главная"), Triple(Tab.CARDS, Icons.Default.CreditCard, "Карты"),
             Triple(Tab.HISTORY, Icons.Default.ReceiptLong, "История"), Triple(Tab.PROFILE, Icons.Default.Person, "Профиль")).forEach { (tab, icon, label) ->
             Column(Modifier.weight(1f).clip(RoundedCornerShape(13.dp)).clickable { onSelect(tab) }.padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
