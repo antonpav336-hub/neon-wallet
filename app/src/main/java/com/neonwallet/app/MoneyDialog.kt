@@ -470,9 +470,34 @@ private fun BankChip(bank: String, selected: Boolean, onClick: () -> Unit) {
         border = BorderStroke(1.dp, if (selected) accent else Muted.copy(alpha = .25f))
     ) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
-            Spacer(Modifier.width(7.dp))
+            BankMark(bank, accent)
+            Spacer(Modifier.width(8.dp))
             Text(bank, color = if (selected) White else Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun BankMark(bank: String, accent: Color) {
+    val shape = if (bank == "Т-Банк") RoundedCornerShape(9.dp) else CircleShape
+    Box(
+        Modifier.size(30.dp).clip(shape).background(
+            when (bank) {
+                "Сбер" -> Brush.linearGradient(listOf(Color(0xFF18B95B), Color(0xFF00A8C7)))
+                "ВТБ" -> Brush.linearGradient(listOf(Color(0xFF0077D9), Color(0xFF42B7FF)))
+                "Альфа-Банк" -> Brush.linearGradient(listOf(Color(0xFFE63345), Color(0xFFB91F35)))
+                "Т-Банк" -> Brush.linearGradient(listOf(Color(0xFF080808), Color(0xFF242424)))
+                else -> Brush.linearGradient(listOf(Purple, Color(0xFF5426A6)))
+            }
+        ),
+        contentAlignment = Alignment.Center
+    ) {
+        when (bank) {
+            "Сбер" -> Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(19.dp))
+            "ВТБ" -> Text("V", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Black)
+            "Т-Банк" -> Text("Т", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Black)
+            "Альфа-Банк" -> Text("A", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Black)
+            else -> Icon(Icons.Default.Bolt, null, tint = Color.White, modifier = Modifier.size(19.dp))
         }
     }
 }
