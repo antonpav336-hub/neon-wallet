@@ -36,9 +36,10 @@ import androidx.compose.ui.unit.*
 import java.text.NumberFormat
 import java.util.Locale
 
-
 @Composable
 internal fun Profile(email: String, onSignOut: () -> Unit) {
+    var openedSection by remember { mutableStateOf<String?>(null) }
+    var confirmSignOut by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Header()
         Text("Профиль", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
@@ -50,20 +51,78 @@ internal fun Profile(email: String, onSignOut: () -> Unit) {
         Text("NEON USER", Modifier.align(Alignment.CenterHorizontally), color = White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
         Text(email.ifBlank { "Локальный демо-аккаунт" }, Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp), color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(28.dp))
-        listOf("Личные данные", "Безопасность", "Уведомления", "О приложении").forEachIndexed { i, label ->
-            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp).clip(RoundedCornerShape(15.dp)).background(Panel).clickable { }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(listOf(Icons.Default.Person, Icons.Default.Shield, Icons.Default.Notifications, Icons.Default.Info)[i], null, tint = Purple)
-                Spacer(Modifier.width(13.dp)); Text(label, color = White, fontSize = 14.sp, modifier = Modifier.weight(1f)); Icon(Icons.Default.ChevronRight, null, tint = Muted)
+        val sections = listOf(
+            Triple("Личные данные", Icons.Default.Person, "personal"),
+            Triple("Безопасность", Icons.Default.Shield, "security"),
+            Triple("Уведомления", Icons.Default.Notifications, "notifications"),
+            Triple("О приложении", Icons.Default.Info, "about")
+        )
+        sections.forEach { (label, icon, key) ->
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp)
+                    .clip(RoundedCornerShape(15.dp)).background(Panel)
+                    .clickable { openedSection = key }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(icon, null, tint = Purple)
+                Spacer(Modifier.width(13.dp))
+                Text(label, color = White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Icon(Icons.Default.ChevronRight, null, tint = Muted)
             }
         }
-        Text("PIN и биометрическая защита", Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp), color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Text("Пока не подключены. Текущий вход — локальный демо-аккаунт на устройстве.", Modifier.padding(horizontal = 22.dp), color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
+        Text("Защита аккаунта", Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp), color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text("Это демонстрационный кошелёк. Не используй здесь реальные пароли или платёжные данные.", Modifier.padding(horizontal = 22.dp), color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
         Spacer(Modifier.height(18.dp))
-        OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        OutlinedButton(onClick = { confirmSignOut = true }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF8A8A)),
             border = BorderStroke(1.dp, Color(0xFFFF8A8A).copy(alpha = .5f))) {
             Icon(Icons.Default.Logout, null); Spacer(Modifier.width(8.dp)); Text("Выйти из аккаунта")
         }
+        Spacer(Modifier.height(24.dp))
+    }
+
+    openedSection?.let { section ->
+        val title = when (section) {
+            "personal" -> "Личные данные"
+            "security" -> "Безопасность"
+            "notifications" -> "Уведомления"
+            else -> "О приложении"
+        }
+        val message = when (section) {
+            "personal" -> "NEON ID\n${email.ifBlank { "Локальный демо-аккаунт" }}\n\nДанные аккаунта хранятся локально на этом устройстве."
+            "security" -> "Вход работает в демонстрационном режиме. PIN-код, биометрическая авторизация и серверная проверка сессии пока не подключены. Не используй реальные пароли."
+            "notifications" -> "Push-уведомления и банковские оповещения пока не подключены. Историю демонстрационных операций можно посмотреть во вкладке «История»."
+            else -> "NEON WALLET\nВерсия 1.0.0\n\nДемонстрационный интерфейс электронного кошелька. Баланс и операции учебные, реальные деньги не перемещаются."
+        }
+        AlertDialog(
+            onDismissRequest = { openedSection = null },
+            containerColor = Panel,
+            title = { Text(title, color = White, fontWeight = FontWeight.Bold) },
+            text = { Text(message, color = Muted, lineHeight = 20.sp) },
+            confirmButton = {
+                TextButton(onClick = { openedSection = null }) {
+                    Text("Понятно", color = Purple, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    if (confirmSignOut) {
+        AlertDialog(
+            onDismissRequest = { confirmSignOut = false },
+            containerColor = Panel,
+            title = { Text("Выйти из аккаунта?", color = White, fontWeight = FontWeight.Bold) },
+            text = { Text("Текущая сессия на этом устройстве будет завершена. Сохранённые демо-операции останутся в аккаунте.", color = Muted) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmSignOut = false
+                    onSignOut()
+                }) { Text("Выйти", color = Color(0xFFFF8A8A), fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmSignOut = false }) { Text("Отмена", color = Muted) }
+            }
+        )
     }
 }
 
