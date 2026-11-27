@@ -19,6 +19,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateColorAsState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -317,7 +318,8 @@ private fun SummaryTile(label: String, amount: Long, tint: Color, modifier: Modi
 @Composable
 private fun History(txs: List<Tx>) {
     var query by remember { mutableStateOf("") }
-    val filtered = txs.filter { it.title.contains(query, true) || it.recipient.contains(query, true) || it.status.contains(query, true) }
+    var selectedKind by remember { mutableStateOf("all") }
+    val filtered = txs.filter { (selectedKind == "all" || it.kind == selectedKind) && (it.title.contains(query, true) || it.recipient.contains(query, true) || it.status.contains(query, true)) }
     val income = txs.filter { it.amount > 0 }.sumOf { it.amount }
     val expense = txs.filter { it.amount < 0 }.sumOf { kotlin.math.abs(it.amount) }
     Column(Modifier.fillMaxSize()) {
@@ -329,6 +331,11 @@ private fun History(txs: List<Tx>) {
             SummaryTile("Расходы", expense, Color(0xFFFF9292), Modifier.weight(1f))
         }
         OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), singleLine = true, placeholder = { Text("Поиск по операции или получателю", color = Muted) }, leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) }, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted))
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("all" to "Все", "topup" to "Пополнения", "transfer" to "Переводы", "withdraw" to "Выводы", "card_payment" to "Оплаты").forEach { (key, label) ->
+                FilterChip(selected = selectedKind == key, onClick = { selectedKind = key }, label = { Text(label) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Purple.copy(alpha = .25f), selectedLabelColor = White, labelColor = Muted))
+            }
+        }
         LazyColumn { items(filtered) { TransactionRow(it) } }
     }
 }
@@ -466,24 +473,29 @@ private fun MoneyDialog(
 
 @Composable
 private fun OperationStatusMark(success: Boolean) {
-    val progress by animateFloatAsState(if (success) 1f else 1f, tween(520), label = "status_mark_progress")
+    var started by remember { mutableStateOf(false) }
+    LaunchedEffect(success) { started = true }
+    val progress by animateFloatAsState(if (started) 1f else 0f, tween(520), label = "status_mark_progress")
     val tint by animateColorAsState(if (success) Green else Color(0xFFFF6675), tween(220), label = "status_mark_color")
-    val shake by animateFloatAsState(if (success) 0f else 1f, tween(360), label = "status_mark_shake")
+    val shake by animateFloatAsState(if (started && !success) 1f else 0f, tween(360), label = "status_mark_shake")
     Canvas(Modifier.size(88.dp).graphicsLayer {
         val wobble = if (success) 0f else kotlin.math.sin(shake * Math.PI * 8).toFloat() * (1f - shake) * 9f
         translationX = wobble
-        scaleX = if (success) .92f + .08f * progress else 1f
-        scaleY = if (success) .92f + .08f * progress else 1f
+        val bounce = if (success) kotlin.math.sin(progress * Math.PI).toFloat() * .12f else 0f
+        scaleX = (if (success) .86f + .14f * progress else 1f) + bounce
+        scaleY = (if (success) .86f + .14f * progress else 1f) + bounce
     }) {
         val stroke = 5.dp.toPx()
         drawCircle(tint.copy(alpha = .13f), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
         drawCircle(tint, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
         if (success) {
-            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .52f), androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f), androidx.compose.ui.geometry.Offset(size.width * .76f, size.height * .34f), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            val firstEnd = .25f + .18f * progress
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .52f), androidx.compose.ui.geometry.Offset(size.width * firstEnd, size.height * (.52f + .16f * progress)), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            val secondProgress = ((progress - .35f) / .65f).coerceIn(0f, 1f)
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f), androidx.compose.ui.geometry.Offset(size.width * (.43f + .33f * secondProgress), size.height * (.68f - .34f * secondProgress)), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
         } else {
-            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .34f, size.height * .34f), androidx.compose.ui.geometry.Offset(size.width * .66f, size.height * .66f), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .66f, size.height * .34f), androidx.compose.ui.geometry.Offset(size.width * .34f, size.height * .66f), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(tint.copy(alpha = progress), androidx.compose.ui.geometry.Offset(size.width * .34f, size.height * .34f), androidx.compose.ui.geometry.Offset(size.width * (.34f + .32f * progress), size.height * (.34f + .32f * progress)), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(tint.copy(alpha = progress), androidx.compose.ui.geometry.Offset(size.width * .66f, size.height * .34f), androidx.compose.ui.geometry.Offset(size.width * (.66f - .32f * progress), size.height * (.34f + .32f * progress)), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
         }
     }
 }
