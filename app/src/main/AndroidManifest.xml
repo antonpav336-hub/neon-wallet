@@ -1,6 +1,6 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.READ_CONTACTS" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
-        android:icon="@drawable/ic_launcher"
+        android:icon="@drawable/ic_launcher_neon"
         android:allowBackup="false"
         android:label="NEON WALLET"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
