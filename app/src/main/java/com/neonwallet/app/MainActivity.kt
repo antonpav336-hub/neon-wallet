@@ -116,7 +116,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
             dialog?.let { kind ->
                 MoneyDialog(kind, balance, cardFrozen, cardLimit, onClose = { if (!isSubmitting) dialog = null },
                     onBegin = { if (canStartOperation(isSubmitting)) { isSubmitting = true; true } else false }) { amount, recipient, bank ->
-                    val accepted = canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen, cardLimit)
+                    val accepted = canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen, cardLimit, bank = bank)
                     if (accepted) {
                         val incoming = kind == "topup"
                         val title = when (kind) {
