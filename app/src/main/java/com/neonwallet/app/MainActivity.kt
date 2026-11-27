@@ -180,7 +180,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                     },
                     confirmButton = { TextButton(onClick = { selectedReceipt = null }) { Text("Готово", color = Purple) } },
                     dismissButton = { TextButton(onClick = {
-                        val receipt = "NEON WALLET · ДЕМО-ЧЕК\n${tx.title}\nСумма: ${money(tx.amount)}\nПолучатель: ${tx.recipient}\nБанк: ${tx.bank}\nДата: ${tx.date}\nID: ${tx.operationId}"
+                        val receipt = "NEON WALLET\n${tx.title}\nСумма: ${money(tx.amount)}\nПолучатель: ${tx.recipient}\nБанк: ${tx.bank}\nДата: ${tx.date}\nID: ${tx.operationId}"
                         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, receipt) }, "Поделиться чеком"))
                     }) { Text("Поделиться", color = Muted) } }
                 )
