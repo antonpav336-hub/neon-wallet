@@ -321,7 +321,7 @@ internal fun MoneyDialog(
                                                 stage = "error"
                                             }
                                         } catch (_: Exception) {
-                                            failure = "Не удалось завершить демо-операцию. Попробуй ещё раз."
+                                            failure = "Не удалось завершить операцию. Попробуй ещё раз."
                                             stage = "error"
                                         } finally {
                                             onFinish()
@@ -435,9 +435,9 @@ private fun ProcessingContent() {
             androidx.compose.material3.Icon(Icons.Default.Bolt, null, tint = Green, modifier = Modifier.size(38.dp))
         }
         Spacer(Modifier.height(28.dp))
-        Text("Отправляем перевод", color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text("Подготавливаем перевод", color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        Text("Проверяем данные и обновляем демо-баланс…", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
+        Text("Проверяем данные операции…", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -472,7 +472,7 @@ private fun ReceiptContent(
             androidx.compose.material3.Icon(Icons.Default.Share, null)
             Spacer(Modifier.width(8.dp)); Text("Поделиться чеком")
         }
-        Text("Демо-операция · реальные деньги не перемещаются", color = Muted, fontSize = 10.sp,
+        Text("Операция обработана в NEON WALLET", color = Muted, fontSize = 10.sp,
             textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
     }
 }
