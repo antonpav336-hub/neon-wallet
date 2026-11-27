@@ -110,7 +110,6 @@ internal fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: ()
             }
         }
         items(txs.take(5)) { tx -> TransactionRow(tx) { onTransactionClick(tx) } }
-        item { Text("ДЕМО-БАЛАНС · РЕАЛЬНЫЕ ДЕНЬГИ НЕ ПЕРЕМЕЩАЮТСЯ", Modifier.fillMaxWidth().padding(20.dp), color = Muted, fontSize = 9.sp) }
     }
 }
 
