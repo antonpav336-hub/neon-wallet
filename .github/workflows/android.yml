@@ -1,8 +1,10 @@
 name: Build Android APK
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches: [ main, master ]
+  push:
+    branches: [ main, master, neon-wallet-v2 ]
     paths:
       - 'app/**'
       - '*.gradle.kts'
