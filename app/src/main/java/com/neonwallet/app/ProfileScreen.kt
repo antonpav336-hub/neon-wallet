@@ -39,7 +39,7 @@ import java.text.NumberFormat
 import java.util.Locale
 
 @Composable
-internal fun Profile(email: String, fullName: String, onSignOut: () -> Unit) {
+internal fun Profile(email: String, fullName: String, accountId: String, onSignOut: () -> Unit) {
     var openedSection by remember { mutableStateOf<String?>(null) }
     var confirmSignOut by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -60,8 +60,10 @@ internal fun Profile(email: String, fullName: String, onSignOut: () -> Unit) {
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(shortDisplayName(fullName), color = White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                    Text(email.ifBlank { "NEON ID" }, color = Muted, fontSize = 12.sp,
+                    Text(email.ifBlank { "Аккаунт NEON" }, color = Muted, fontSize = 12.sp,
                         modifier = Modifier.padding(top = 4.dp))
+                    Text("NEON ID: " + accountId.ifBlank { "—" }, color = Purple, fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 5.dp))
                 }
                 Icon(Icons.Default.ChevronRight, null, tint = Muted)
             }
