@@ -43,7 +43,7 @@ internal fun QRScannerDialog(onClose: () -> Unit, onScanned: (String) -> Unit) {
     }
     DisposableEffect(lifecycleOwner, previewView) {
         val view = previewView
-        if (view == null) return@DisposableEffect onDispose { scanner.close() }
+        if (view == null) return@DisposableEffect onDispose { }
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         val executor = Executors.newSingleThreadExecutor()
         val mainExecutor = ContextCompat.getMainExecutor(context)
