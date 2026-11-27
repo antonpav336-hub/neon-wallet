@@ -1,6 +1,8 @@
 package com.neonwallet.app
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -8,6 +10,7 @@ class WalletRulesTest {
     @Test fun rejectsZeroAndNegativeAmounts() {
         assertFalse(canSubmitMoneyOperation("topup", 0L, 100L, ""))
         assertFalse(canSubmitMoneyOperation("transfer", -1L, 100L, "Alex"))
+        assertEquals("Укажи сумму больше нуля.", operationFailureReason("topup", 0L, 100L, ""))
     }
 
     @Test fun transferRequiresRecipientAndAvailableBalance() {
@@ -15,6 +18,7 @@ class WalletRulesTest {
         assertTrue(canSubmitMoneyOperation("transfer", 10L, 100L, "Alex"))
         assertFalse(canSubmitMoneyOperation("transfer", 101L, 100L, "Alex"))
         assertTrue(canSubmitMoneyOperation("transfer", 100L, 100L, "Alex"))
+        assertEquals("Недостаточно средств на демо-балансе.", operationFailureReason("transfer", 101L, 100L, "Alex"))
     }
 
     @Test fun withdrawalRequiresDestinationAndAvailableBalance() {
@@ -34,6 +38,14 @@ class WalletRulesTest {
         assertTrue(canSubmitMoneyOperation("card_payment", 10L, 100L, "Merchant", false))
         assertFalse(canUseCard(true))
         assertTrue(canUseCard(false))
+        assertEquals("Карта заморожена. Разморозь её перед оплатой.", operationFailureReason("card_payment", 10L, 100L, "Shop", true))
+    }
+
+    @Test fun cardLimitIsEnforced() {
+        assertTrue(canSubmitMoneyOperation("card_payment", 50L, 100L, "Shop", false, 50L))
+        assertFalse(canSubmitMoneyOperation("card_payment", 51L, 100L, "Shop", false, 50L))
+        assertFalse(canSubmitMoneyOperation("card_payment", 10L, 100L, "Shop", false, -1L))
+        assertEquals("Сумма превышает установленный лимит карты.", operationFailureReason("card_payment", 51L, 100L, "Shop", false, 50L))
     }
 
     @Test fun duplicateSubmissionIsBlocked() {
@@ -44,5 +56,9 @@ class WalletRulesTest {
     @Test fun rejectsUnknownOperationAndNegativeBalance() {
         assertFalse(canSubmitMoneyOperation("unknown", 1L, 100L, "Alex"))
         assertFalse(canSubmitMoneyOperation("transfer", 1L, -1L, "Alex"))
+    }
+
+    @Test fun requiredRecipientIsExplained() {
+        assertEquals("Заполни получателя или назначение.", operationFailureReason("withdraw", 1L, 100L, " "))
     }
 }
