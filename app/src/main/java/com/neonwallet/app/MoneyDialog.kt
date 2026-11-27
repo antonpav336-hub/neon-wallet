@@ -78,7 +78,7 @@ internal fun MoneyDialog(
     onBegin: () -> Boolean,
     onFinish: () -> Unit,
     initialRecipient: String = "",
-    onConfirm: (Long, String, String) -> Boolean
+    onConfirm: suspend (Long, String, String) -> Boolean
 ) {
     val context = LocalContext.current
     var amount by remember { mutableStateOf("") }
@@ -226,6 +226,20 @@ internal fun MoneyDialog(
                                     onEditRecipient = { flowStep = "contacts" },
                                     onEditBank = { flowStep = "bank" }
                                 )
+                                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    Text("NEON ID получателя", color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    OutlinedTextField(
+                                        value = recipient,
+                                        onValueChange = { recipient = it.filter(Char::isDigit).take(12); failure = null },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        label = { Text("9-значный ID аккаунта") },
+                                        placeholder = { Text("Например, 123456789") },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = neonFieldColors()
+                                    )
+                                    Text("Перевод выполняется внутри NEON WALLET по ID аккаунта, не по номеру телефона или карте.", color = Muted, fontSize = 11.sp)
+                                }
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Text("Сообщение получателю", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     OutlinedTextField(
