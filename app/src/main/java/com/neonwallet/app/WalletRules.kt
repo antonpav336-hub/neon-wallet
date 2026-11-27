@@ -11,7 +11,7 @@ internal fun canSubmitMoneyOperation(
     bank: String = "NEON"
 ): Boolean {
     if (amount <= 0L || balance < 0L || cardLimit < 0L || transferLimit < 0L) return false
-    if (kind == "card_payment" && cardFrozen) return false
+    if (cardFrozen && kind in setOf("transfer", "withdraw", "card_payment")) return false
     if (kind == "transfer" && !validBank(bank)) return false
     return when (kind) {
         "transfer" -> amount <= balance && amount <= transferLimit && validRecipient(recipient)
@@ -37,7 +37,7 @@ internal fun operationFailureReason(
     kind == "transfer" && amount > transferLimit -> "Сумма превышает лимит перевода."
     kind == "transfer" && !validBank(bank) -> "Выбери банк назначения."
     !validRecipient(recipient) && kind in setOf("transfer", "withdraw", "card_payment") -> "Укажи корректного получателя или назначение."
-    kind == "card_payment" && cardFrozen -> "Карта заморожена. Разморозь её перед оплатой."
+    cardFrozen && kind in setOf("transfer", "withdraw", "card_payment") -> "Карта заморожена. Разморозь её, чтобы выполнять исходящие операции."
     amount > balance && kind in setOf("transfer", "withdraw", "card_payment") -> "Недостаточно средств на демо-балансе."
     kind == "card_payment" && amount > cardLimit -> "Сумма превышает установленный лимит карты."
     kind == "topup" && balance > Long.MAX_VALUE - amount -> "Сумма слишком велика."
