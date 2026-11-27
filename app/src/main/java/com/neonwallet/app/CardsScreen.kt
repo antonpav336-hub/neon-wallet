@@ -110,7 +110,7 @@ internal fun Cards(frozen: Boolean, cardLimit: Long, onToggleFreeze: () -> Unit,
 internal fun SummaryTile(label: String, amount: Long, tint: Color, modifier: Modifier = Modifier) {
     Box(modifier.clip(RoundedCornerShape(16.dp)).background(Panel)) {
         Image(painterResource(R.drawable.bg_neon_history), contentDescription = null,
-            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.18f))
+            contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().alpha(0.18f))
         Column(Modifier.padding(14.dp)) {
             Text(label, color = Muted, fontSize = 11.sp)
             Text(money(amount), color = tint, fontSize = 16.sp, fontWeight = FontWeight.Bold)
