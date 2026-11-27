@@ -250,33 +250,84 @@ private fun TransactionRow(tx: Tx) {
 
 @Composable
 private fun Cards() {
-    Column(Modifier.fillMaxSize()) {
-        Header()
-        Text("Мои карты", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
-        Text("Управляй своими картами", Modifier.padding(start = 22.dp, top = 5.dp), color = Muted, fontSize = 13.sp)
-        Spacer(Modifier.height(24.dp))
-        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(205.dp).clip(RoundedCornerShape(26.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF74618F), Color(0xFF40334F), Color(0xFF211B29))))
-            .border(1.dp, Color(0xFFB58BFF).copy(alpha = .4f), RoundedCornerShape(26.dp)).padding(22.dp)) {
-            Column(Modifier.fillMaxHeight()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("NEON WALLET", color = White, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                    Spacer(Modifier.weight(1f)); Icon(Icons.Default.Contactless, null, tint = White)
-                }
-                Spacer(Modifier.weight(1f))
-                Text("••••  ••••  ••••  2048", color = White, fontSize = 19.sp, letterSpacing = 2.sp)
-                Spacer(Modifier.height(15.dp))
-                Row {
-                    Column { Text("ВЛАДЕЛЕЦ", color = White.copy(alpha = .65f), fontSize = 9.sp); Text("NEON USER", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-                    Spacer(Modifier.weight(1f)); Text("VISA", color = White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 26.dp)) {
+        item {
+            Header()
+            Text("Карты и счета", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
+            Text("Ваши платёжные инструменты", Modifier.padding(start = 22.dp, top = 5.dp), color = Muted, fontSize = 13.sp)
+        }
+        item {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 22.dp).height(210.dp)
+                .clip(RoundedCornerShape(27.dp))
+                .background(Brush.linearGradient(listOf(Color(0xFF51475F), Color(0xFF302A38), Color(0xFF211D26))))
+                .border(1.dp, Color(0xFFC5B1E8).copy(alpha = .26f), RoundedCornerShape(27.dp)).padding(22.dp)) {
+                Box(Modifier.align(Alignment.TopEnd).size(145.dp).offset(x = 48.dp, y = (-48).dp)
+                    .background(Color(0xFFBBA6EA).copy(alpha = .12f), CircleShape))
+                Column(Modifier.fillMaxHeight()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("NEON", color = White, fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 2.sp)
+                        Spacer(Modifier.weight(1f))
+                        Icon(Icons.Default.Contactless, null, tint = White.copy(alpha = .8f), modifier = Modifier.size(25.dp))
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text("••••  ••••  ••••  2048", color = White, fontSize = 18.sp, letterSpacing = 1.5.sp)
+                    Spacer(Modifier.height(15.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Column {
+                            Text("ВЛАДЕЛЕЦ", color = White.copy(alpha = .6f), fontSize = 9.sp, letterSpacing = 1.sp)
+                            Text("NEON USER", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Text("VIRTUAL", color = White.copy(alpha = .85f), fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(22.dp))
-        Text("Виртуальная карта · DEMO", Modifier.padding(horizontal = 20.dp), color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Text("Демонстрационный макет. Карта не привязана к платёжной системе.", Modifier.padding(20.dp), color = Muted, fontSize = 12.sp)
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(top = 25.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Мои продукты", color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text("1 продукт", color = Muted, fontSize = 11.sp)
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(18.dp))
+                .background(Panel).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFBBA6EA).copy(alpha = .14f)),
+                    contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.CreditCard, null, tint = Purple)
+                }
+                Spacer(Modifier.width(13.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Виртуальная карта", color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Макет интерфейса · не платёжный инструмент", color = Muted, fontSize = 10.sp)
+                }
+                Icon(Icons.Default.ChevronRight, null, tint = Muted)
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(top = 24.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Возможности", color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            listOf(
+                Triple(Icons.Default.Lock, "Безопасное хранение", "Подключим после настройки защищённого сервера"),
+                Triple(Icons.Default.QrCode2, "Оплата по QR-коду", "Подключение платёжного провайдера"),
+                Triple(Icons.Default.AccountBalance, "Банковские переводы", "Требуется интеграция с партнёром")
+            ).forEach { (icon, title, subtitle) ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(15.dp)).background(Panel).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, null, tint = Purple)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(title, color = White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text(subtitle, color = Muted, fontSize = 10.sp)
+                    }
+                }
+            }
+        }
     }
 }
+
 
 @Composable
 private fun History(txs: List<Tx>) {
@@ -290,25 +341,58 @@ private fun History(txs: List<Tx>) {
 
 @Composable
 private fun Profile() {
-    Column(Modifier.fillMaxSize()) {
-        Header()
-        Text("Профиль", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(24.dp))
-        Box(Modifier.align(Alignment.CenterHorizontally).size(82.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Purple, Color(0xFF79659A))), CircleShape), contentAlignment = Alignment.Center) {
-            Text("N", color = White, fontSize = 35.sp, fontWeight = FontWeight.Black)
-        }
-        Spacer(Modifier.height(12.dp))
-        Text("NEON USER", Modifier.align(Alignment.CenterHorizontally), color = White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-        Text("Демо-аккаунт", Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp), color = Muted, fontSize = 12.sp)
-        Spacer(Modifier.height(28.dp))
-        listOf("Личные данные", "Безопасность", "Уведомления", "О приложении").forEachIndexed { i, label ->
-            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp).clip(RoundedCornerShape(15.dp)).background(Panel).clickable { }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(listOf(Icons.Default.Person, Icons.Default.Shield, Icons.Default.Notifications, Icons.Default.Info)[i], null, tint = Purple)
-                Spacer(Modifier.width(13.dp)); Text(label, color = White, fontSize = 14.sp, modifier = Modifier.weight(1f)); Icon(Icons.Default.ChevronRight, null, tint = Muted)
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            Header()
+            Text("Профиль", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(20.dp))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(22.dp))
+                .background(Brush.linearGradient(listOf(Color(0xFF30283A), Panel))).padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(58.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Color(0xFFC7B4ED), Color(0xFF78658F)))),
+                    contentAlignment = Alignment.Center) {
+                    Text("N", color = Color(0xFF211A2B), fontSize = 27.sp, fontWeight = FontWeight.Black)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text("NEON USER", color = White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Личный кабинет", color = Muted, fontSize = 12.sp)
+                }
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Default.ChevronRight, null, tint = Muted)
             }
+        }
+        item {
+            Text("Настройки", Modifier.padding(start = 22.dp, top = 27.dp, bottom = 10.dp), color = Muted,
+                fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp)
+            listOf(
+                Triple(Icons.Default.PersonOutline, "Личные данные", "Имя и контактная информация"),
+                Triple(Icons.Default.Security, "Безопасность", "PIN-код и способы входа"),
+                Triple(Icons.Default.NotificationsNone, "Уведомления", "Настройки оповещений"),
+                Triple(Icons.Default.HelpOutline, "Помощь", "Поддержка и ответы на вопросы"),
+                Triple(Icons.Default.Info, "О приложении", "Версия и юридическая информация")
+            ).forEach { (icon, title, subtitle) ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(16.dp)).background(Panel).clickable { }.padding(15.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(39.dp).clip(RoundedCornerShape(13.dp)).background(Color(0xFFBBA6EA).copy(alpha = .12f)),
+                        contentAlignment = Alignment.Center) { Icon(icon, null, tint = Purple, modifier = Modifier.size(20.dp)) }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(title, color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(subtitle, color = Muted, fontSize = 10.sp)
+                    }
+                    Icon(Icons.Default.ChevronRight, null, tint = Muted)
+                }
+            }
+        }
+        item {
+            Text("NEON WALLET · PREVIEW", Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                color = Muted.copy(alpha = .65f), fontSize = 9.sp, letterSpacing = 1.3.sp)
         }
     }
 }
+
 
 @Composable
 private fun BottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
