@@ -13,6 +13,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
@@ -40,16 +43,23 @@ private enum class Tab { HOME, CARDS, HISTORY, PROFILE }
 
 @Composable
 fun NeonWalletApp() {
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences("neon_wallet_demo", android.content.Context.MODE_PRIVATE) }
     var tab by remember { mutableStateOf(Tab.HOME) }
-    var balance by remember { mutableLongStateOf(128450L) }
+    var balance by remember { mutableLongStateOf(prefs.getLong("balance", 128450L)) }
     var showBalance by remember { mutableStateOf(true) }
     var dialog by remember { mutableStateOf<String?>(null) }
-    var txs by remember { mutableStateOf(listOf(
-        Tx("Пополнение", "Сегодня · 10:42", 25000, true),
-        Tx("Coffee House", "Сегодня · 09:18", -680, false),
-        Tx("Перевод от Alex", "Вчера · 18:35", 12000, true),
-        Tx("Подписка", "Вчера · 12:00", -499, false)
-    )) }
+    var txs by remember { mutableStateOf(loadTransactions(prefs)) }
+    SideEffect {
+        val array = JSONArray()
+        txs.forEach { tx ->
+            array.put(JSONObject().apply {
+                put("title", tx.title); put("date", tx.date)
+                put("amount", tx.amount); put("incoming", tx.incoming)
+            })
+        }
+        prefs.edit().putLong("balance", balance).putString("transactions", array.toString()).apply()
+    }
     MaterialTheme(colorScheme = darkColorScheme(background = Bg, surface = Panel, primary = Purple, onSurface = White)) {
         Box(Modifier.fillMaxSize().background(Bg)) {
             Column(Modifier.fillMaxSize()) {
@@ -274,3 +284,20 @@ private fun MoneyDialog(kind: String, onClose: () -> Unit, onConfirm: (Long, Str
 }
 
 private fun money(value: Long): String = NumberFormat.getNumberInstance(Locale("ru", "RU")).format(kotlin.math.abs(value)) + " ₽"
+
+private fun loadTransactions(prefs: android.content.SharedPreferences): List<Tx> {
+    val stored = prefs.getString("transactions", null)
+    if (stored.isNullOrBlank()) return listOf(
+        Tx("Пополнение", "Сегодня · 10:42", 25000, true),
+        Tx("Coffee House", "Сегодня · 09:18", -680, false),
+        Tx("Перевод от Alex", "Вчера · 18:35", 12000, true),
+        Tx("Подписка", "Вчера · 12:00", -499, false)
+    )
+    return try {
+        val array = JSONArray(stored)
+        (0 until array.length()).map { i ->
+            val item = array.getJSONObject(i)
+            Tx(item.getString("title"), item.getString("date"), item.getLong("amount"), item.getBoolean("incoming"))
+        }
+    } catch (_: Exception) { emptyList() }
+}
