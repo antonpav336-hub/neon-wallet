@@ -71,7 +71,6 @@ internal fun Profile(email: String, onSignOut: () -> Unit) {
             }
         }
         Text("Защита аккаунта", Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp), color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Text("Это демонстрационный кошелёк. Не используй здесь реальные пароли или платёжные данные.", Modifier.padding(horizontal = 22.dp), color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
         Spacer(Modifier.height(18.dp))
         OutlinedButton(onClick = { confirmSignOut = true }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF8A8A)),
