@@ -78,7 +78,7 @@ internal fun MoneyDialog(
     onBegin: () -> Boolean,
     onFinish: () -> Unit,
     initialRecipient: String = "",
-    onConfirm: suspend (Long, String, String) -> Boolean
+    onConfirm: suspend (Long, String, String) -> String?
 ) {
     val context = LocalContext.current
     var amount by remember { mutableStateOf("") }
@@ -323,7 +323,9 @@ internal fun MoneyDialog(
                                             delay(820)
                                             receiptId = "NW" + System.currentTimeMillis()
                                             receiptTime = SimpleDateFormat("dd MMM · HH:mm", Locale("ru")).format(Date())
-                                            if (onConfirm(parsedAmount, recipient.trim(), bank)) {
+                                            val serverTransactionId = onConfirm(parsedAmount, recipient.trim(), bank)
+                                            if (!serverTransactionId.isNullOrBlank()) {
+                                                receiptId = serverTransactionId
                                                 stage = "success"
                                             } else {
                                                 failure = operationFailureReason(kind, parsedAmount, balance, recipient,
