@@ -2,6 +2,7 @@ package com.neonwallet.app
 
 import android.content.SharedPreferences
 import android.util.Base64
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,6 +16,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -57,9 +61,11 @@ internal fun PinGateScreen(prefs: SharedPreferences, setup: Boolean, onUnlocked:
     var error by remember { mutableStateOf("") }
     val title = if (setup) "Создай PIN-код" else "С возвращением"
     val subtitle = if (setup && firstPin.isNotEmpty()) "Повтори PIN-код" else if (setup) "Придумай код из 4–6 цифр" else "Введи PIN-код для входа"
-    Column(
-        Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF211C2A), Bg, Color(0xFF0B0A10))))
-            .padding(horizontal = 28.dp),
+    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF211C2A), Bg, Color(0xFF0B0A10))))) {
+        Image(painterResource(R.drawable.bg_neon_pin), contentDescription = null,
+            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.24f))
+        Column(
+        Modifier.fillMaxSize().padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -125,4 +131,5 @@ internal fun PinGateScreen(prefs: SharedPreferences, setup: Boolean, onUnlocked:
         Spacer(Modifier.height(20.dp))
         Text("PIN защищает доступ к приложению на этом устройстве.", color = Muted, fontSize = 11.sp, textAlign = TextAlign.Center)
     }
+}
 }
