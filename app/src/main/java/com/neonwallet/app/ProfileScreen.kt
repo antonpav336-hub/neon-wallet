@@ -49,7 +49,7 @@ internal fun Profile(email: String, onSignOut: () -> Unit) {
         }
         Spacer(Modifier.height(12.dp))
         Text("NEON USER", Modifier.align(Alignment.CenterHorizontally), color = White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-        Text(email.ifBlank { "Локальный демо-аккаунт" }, Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp), color = Muted, fontSize = 12.sp)
+        Text(email.ifBlank { "NEON ID" }, Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp), color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(28.dp))
         val sections = listOf(
             Triple("Личные данные", Icons.Default.Person, "personal"),
@@ -90,7 +90,7 @@ internal fun Profile(email: String, onSignOut: () -> Unit) {
         }
         val message = when (section) {
             "personal" -> "NEON ID\n${email.ifBlank { "Локальный демо-аккаунт" }}\n\nДанные аккаунта хранятся локально на этом устройстве."
-            "security" -> "Вход работает в демонстрационном режиме. PIN-код, биометрическая авторизация и серверная проверка сессии пока не подключены. Не используй реальные пароли."
+            "security" -> "Для входа используется PIN-код. Он хранится в защищённом виде на этом устройстве. Биометрический вход можно подключить отдельно."
             "notifications" -> "Push-уведомления и банковские оповещения пока не подключены. Историю демонстрационных операций можно посмотреть во вкладке «История»."
             else -> "NEON WALLET\nВерсия 1.0.0\n\nДемонстрационный интерфейс электронного кошелька. Баланс и операции учебные, реальные деньги не перемещаются."
         }
@@ -112,7 +112,7 @@ internal fun Profile(email: String, onSignOut: () -> Unit) {
             onDismissRequest = { confirmSignOut = false },
             containerColor = Panel,
             title = { Text("Выйти из аккаунта?", color = White, fontWeight = FontWeight.Bold) },
-            text = { Text("Текущая сессия на этом устройстве будет завершена. Сохранённые демо-операции останутся в аккаунте.", color = Muted) },
+            text = { Text("Текущая сессия на этом устройстве будет завершена. Сохранённая история операций останется на устройстве.", color = Muted) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmSignOut = false
