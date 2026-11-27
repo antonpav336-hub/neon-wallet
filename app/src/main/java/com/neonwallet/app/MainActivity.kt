@@ -1,6 +1,7 @@
 package com.neonwallet.app
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
@@ -431,7 +432,10 @@ private fun MoneyDialog(
     var who by remember { mutableStateOf("") }
     var stage by remember { mutableStateOf("editing") }
     var failure by remember { mutableStateOf<String?>(null) }
+    var receiptId by remember { mutableStateOf("") }
+    var receiptTime by remember { mutableStateOf("") }
     val parsedAmount = amount.toLongOrNull() ?: 0L
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val favoritePrefs = remember(context) { context.getSharedPreferences("neon_transfer_favorites", android.content.Context.MODE_PRIVATE) }
@@ -460,6 +464,19 @@ private fun MoneyDialog(
                         Text(when (kind) { "topup" -> "Пополнение выполнено"; "withdraw" -> "Вывод оформлен"; "card_payment" -> "Оплата выполнена"; else -> "Перевод отправлен" }, color = Green, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                         Text(money(parsedAmount), color = White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
                         Text(if (who.isBlank()) "Демо-пополнение" else who, color = Muted, fontSize = 13.sp)
+                        Spacer(Modifier.height(10.dp))
+                        Text("Выполнено: " + receiptTime, color = Muted, fontSize = 10.sp)
+                        Text("ID операции: " + receiptId, color = Muted, fontSize = 10.sp)
+                        OutlinedButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(receiptId)) }) {
+                            Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(15.dp)); Spacer(Modifier.width(5.dp)); Text("Скопировать ID")
+                        }
+                        OutlinedButton(onClick = {
+                            val receipt = "NEON WALLET · ДЕМО-ЧЕК\n" + action + ": " + money(parsedAmount) + "\n" + who + "\nID: " + receiptId + "\n" + receiptTime + "\nРеальный платёж не выполнялся."
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, receipt) }
+                            context.startActivity(Intent.createChooser(shareIntent, "Поделиться чеком"))
+                        }) {
+                            Icon(Icons.Default.Share, null, modifier = Modifier.size(15.dp)); Spacer(Modifier.width(5.dp)); Text("Поделиться чеком")
+                        }
                     }
                     "error" -> Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         OperationStatusMark(success = false)
@@ -487,9 +504,16 @@ private fun MoneyDialog(
                             }
                         }
                         Spacer(Modifier.height(10.dp))
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(500, 1000, 3000, 5000).forEach { preset ->
+                                AssistChip(onClick = { amount = preset.toString(); failure = null }, label = { Text(preset.toString() + " ₽") })
+                            }
+                        }
                         OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(9); failure = null }, label = { Text("Сумма в ₽") }, singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
-                        if (failure != null) Text(failure!!, color = Color(0xFFFF858D), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+                        val liveError = if (amount.isNotBlank()) operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit) else null
+                        if (liveError != null) Text(liveError, color = Color(0xFFFF929B), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+                        else if (failure != null) Text(failure!!, color = Color(0xFFFF858D), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
                         Text("Демо-режим: реальные деньги не перемещаются.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
                     }
                 }
@@ -505,8 +529,11 @@ private fun MoneyDialog(
                         scope.launch {
                             delay(820)
                             val accepted = onConfirm(parsedAmount, who.trim())
-                            if (accepted) stage = "success"
-                            else {
+                            if (accepted) {
+                                receiptId = "NW" + System.currentTimeMillis().toString()
+                                receiptTime = java.text.SimpleDateFormat("dd.MM.yyyy · HH:mm", Locale("ru")).format(java.util.Date())
+                                stage = "success"
+                            } else {
                                 failure = operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit) ?: "Операция уже обрабатывается или была отклонена."
                                 stage = "error"
                             }
