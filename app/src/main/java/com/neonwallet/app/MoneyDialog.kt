@@ -17,6 +17,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
@@ -57,8 +58,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -79,13 +78,19 @@ internal fun MoneyDialog(
 ) {
     var amount by remember { mutableStateOf("") }
     var recipient by remember(initialRecipient) { mutableStateOf(initialRecipient) }
-    var bank by remember { mutableStateOf("NEON") }
+    var bank by remember { mutableStateOf(if (kind == "transfer" && initialRecipient.isBlank()) "" else "NEON") }
+    var flowStep by remember { mutableStateOf(if (kind == "transfer" && initialRecipient.isBlank()) "contacts" else if (kind == "transfer") "bank" else "editing") }
+    var contactName by remember { mutableStateOf("") }
+    var contactPhone by remember { mutableStateOf("") }
+    var contactQuery by remember { mutableStateOf("") }
+    var contactsPermissionGranted by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) }
     var message by remember { mutableStateOf("") }
     val context = LocalContext.current
     var contactList by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var showContacts by remember { mutableStateOf(false) }
     val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) { contactList = readPhoneContacts(context); showContacts = true }
+        contactsPermissionGranted = granted
+        if (granted) { contactList = readPhoneContacts(context); showContacts = false }
     }
     var stage by remember { mutableStateOf("editing") }
     var failure by remember { mutableStateOf<String?>(null) }
@@ -116,23 +121,36 @@ internal fun MoneyDialog(
     val liveError = if (amount.isNotBlank()) {
         operationFailureReason(kind, parsedAmount, balance, recipient, cardFrozen, cardLimit, bank = bank)
     } else null
-    val canSend = stage == "editing" && amount.isNotBlank() && liveError == null
+    val canSend = stage == "editing" && flowStep == "editing" && amount.isNotBlank() && liveError == null
 
-    BackHandler(enabled = true) {
-        if (stage != "processing") onClose()
+    LaunchedEffect(transfer, initialRecipient) {
+        if (transfer && initialRecipient.isBlank()) {
+            if (contactsPermissionGranted) contactList = readPhoneContacts(context)
+            else contactsPermission.launch(android.Manifest.permission.READ_CONTACTS)
+        }
     }
 
-    Dialog(
-        onDismissRequest = { if (stage != "processing") onClose() },
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(modifier = Modifier.fillMaxSize(), color = Bg, shape = RoundedCornerShape(0.dp)) {
+    fun goBackFlow() {
+        if (stage == "processing") return
+        if (stage == "success" || stage == "error") { onClose(); return }
+        if (transfer) {
+            when (flowStep) {
+                "editing" -> flowStep = "bank"
+                "bank" -> flowStep = "contacts"
+                else -> onClose()
+            }
+        } else onClose()
+    }
+
+    BackHandler(enabled = true) { goBackFlow() }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Bg, shape = RoundedCornerShape(0.dp)) {
             Column(Modifier.fillMaxSize().background(Bg)) {
                 Row(
                     Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onClose, enabled = stage != "processing") {
+                    IconButton(onClick = { goBackFlow() }, enabled = stage != "processing") {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = White)
                     }
                     Spacer(Modifier.width(8.dp))
@@ -141,7 +159,7 @@ internal fun MoneyDialog(
                             "processing" -> "Обработка перевода"
                             "success" -> "Чек операции"
                             "error" -> "Операция отклонена"
-                            else -> if (transfer) "Перевод" else action
+                            else -> if (transfer) when (flowStep) { "contacts" -> "Получатель"; "bank" -> "Банк получателя"; else -> "Перевод" } else action
                         },
                         color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold
                     )
@@ -150,9 +168,9 @@ internal fun MoneyDialog(
                 }
                 HorizontalDivider(color = White.copy(alpha = .07f))
                 AnimatedContent(
-                    targetState = stage,
+                    targetState = if (stage == "editing" && transfer) flowStep else stage,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(140)) },
+                    transitionSpec = { (fadeIn(tween(240)) + slideInHorizontally(tween(260)) { it / 14 }) togetherWith fadeOut(tween(150)) },
                     label = "operation_stage"
                 ) { current ->
                     when (current) {
