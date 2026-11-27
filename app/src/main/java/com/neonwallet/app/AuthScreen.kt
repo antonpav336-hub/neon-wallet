@@ -21,6 +21,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -49,6 +51,7 @@ internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () 
     var error by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val scope = rememberCoroutineScope()
     Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF211C2A), Bg, Color(0xFF0B0A10))))) {
         Image(painterResource(R.drawable.bg_neon_auth), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.28f))
         Box(Modifier.align(Alignment.TopEnd).offset(x = 65.dp, y = (-65).dp).size(240.dp).background(Purple.copy(alpha = .14f), CircleShape).blur(65.dp))
@@ -86,31 +89,37 @@ internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () 
                     password.length < 8 -> error = "Пароль должен содержать минимум 8 символов."
                     register && password != confirm -> error = "Пароли не совпадают."
                     else -> {
-                        busy = true
-                        val key = "user_" + normalized
-                        val existing = prefs.getString(key, null)
-                        if (register && existing != null) {
-                            error = "Аккаунт с такой почтой уже существует."
-                            busy = false
-                        } else if (!register && existing == null) {
-                            error = "Аккаунт не найден. Сначала зарегистрируйся."
-                            busy = false
+                        if (password.length < 10) {
+                            error = "Пароль должен содержать минимум 10 символов."
                         } else {
-                            val saved = if (register) {
-                                val salt = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
-                                val hash = passwordHash(password, salt)
-                                android.util.Base64.encodeToString(salt, android.util.Base64.NO_WRAP) + ":" +
-                                    android.util.Base64.encodeToString(hash, android.util.Base64.NO_WRAP)
-                            } else existing!!
-                            if (!register && !verifyPassword(password, saved)) {
-                                error = "Неверная почта или пароль."
-                                busy = false
-                            } else {
-                                prefs.edit().putString(key, saved).putString("current_email", normalized)
-                                    .apply { if (register) putString("name_$normalized", fullName.trim()) }
-                                    .apply()
-                                busy = false
-                                onSuccess()
+                            busy = true
+                            scope.launch {
+                                try {
+                                    val response = withContext(Dispatchers.IO) {
+                                        if (register) {
+                                            val usernameBase = normalized.substringBefore("@")
+                                                .replace(Regex("[^A-Za-z0-9_]"), "_").take(24)
+                                            val username = if (usernameBase.length >= 3) usernameBase else "neon_$usernameBase"
+                                            WalletApi.register(username, normalized, password)
+                                        } else {
+                                            WalletApi.login(normalized, password)
+                                        }
+                                    }
+                                    val user = response.optJSONObject("user") ?: org.json.JSONObject()
+                                    prefs.edit()
+                                        .putString("current_email", normalized)
+                                        .putString("access_token", response.getString("access_token"))
+                                        .putString("account_id", user.optString("account_id"))
+                                        .putString("server_username", user.optString("username"))
+                                        .apply { if (register) putString("name_$normalized", fullName.trim()) }
+                                        .putBoolean("signed_in", true)
+                                        .apply()
+                                    onSuccess()
+                                } catch (e: Exception) {
+                                    error = e.message ?: "Не удалось связаться с сервером. Проверь интернет."
+                                } finally {
+                                    busy = false
+                                }
                             }
                         }
                     }
@@ -128,7 +137,7 @@ internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () 
                 }
             }
             Spacer(Modifier.height(20.dp))
-            Text("Аккаунты и профиль сохраняются на этом устройстве. Для синхронизации между устройствами потребуется сервер.",
+            Text("Аккаунт, виртуальный баланс и история операций синхронизируются через защищённый сервер NEON.",
                 color = Muted, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.fillMaxWidth(),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
