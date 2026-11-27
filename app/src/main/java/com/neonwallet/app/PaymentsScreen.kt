@@ -25,7 +25,8 @@ internal fun Payments(
     cardLimit: Long,
     onTransfer: () -> Unit,
     onTopup: () -> Unit,
-    onWithdraw: () -> Unit
+    onWithdraw: () -> Unit,
+    onScanQr: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(Bg)) {
         Header()
