@@ -98,6 +98,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
     val accountFullName = authPrefs.getString("name_$accountEmail", accountEmail.substringBefore("@")) ?: accountEmail.substringBefore("@")
     val accountKey = remember(accountEmail) { android.util.Base64.encodeToString(accountEmail.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING) }
     val prefs = remember(context, accountKey) { context.getSharedPreferences("neon_wallet_demo_$accountKey", android.content.Context.MODE_PRIVATE) }
+    val scope = rememberCoroutineScope()
     var tab by remember { mutableStateOf(Tab.HOME) }
     var balance by remember(accountKey) { mutableLongStateOf(0L) }
     var showBalance by remember(accountKey) { mutableStateOf(prefs.getBoolean("show_balance", true)) }
@@ -114,9 +115,11 @@ private fun WalletMain(onSignOut: () -> Unit) {
     var selectedReceipt by remember { mutableStateOf<Tx?>(null) }
     suspend fun refreshServerData() {
         val data = withContext(Dispatchers.IO) {
-            Pair(WalletApi.wallet(token), WalletApi.transactions(token))
+            Triple(WalletApi.wallet(token), WalletApi.transactions(token), WalletApi.settings(token))
         }
         balance = data.first.optLong("balance_kopecks", 0L) / 100L
+        cardFrozen = data.third.optBoolean("card_frozen", false)
+        cardLimit = data.third.optLong("card_limit_kopecks", 5_000_000L) / 100L
         val items = data.second.optJSONArray("items") ?: JSONArray()
         txs = (0 until items.length()).map { index ->
             val item = items.getJSONObject(index)
@@ -164,8 +167,29 @@ private fun WalletMain(onSignOut: () -> Unit) {
                                 else cameraPermission.launch(android.Manifest.permission.CAMERA)
                             }
                             Tab.CARDS -> Cards(cardFrozen, cardLimit, accountFullName, {
-                                cardFrozen = !cardFrozen
-                            }, { cardLimit = it.coerceAtLeast(0L) }) { if (canUseCard(cardFrozen)) dialog = "card_payment" }
+                                val next = !cardFrozen
+                                cardFrozen = next
+                                scope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) { WalletApi.updateSettings(token, next, cardLimit) }
+                                        serverMessage = null
+                                    } catch (e: Exception) {
+                                        cardFrozen = !next
+                                        serverMessage = e.message ?: "Не удалось сохранить состояние карты на сервере."
+                                    }
+                                }
+                            }, { value ->
+                                val nextLimit = value.coerceAtLeast(0L)
+                                cardLimit = nextLimit
+                                scope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) { WalletApi.updateSettings(token, cardFrozen, nextLimit) }
+                                        serverMessage = null
+                                    } catch (e: Exception) {
+                                        serverMessage = e.message ?: "Не удалось сохранить лимит карты на сервере."
+                                    }
+                                }
+                            }) { if (canUseCard(cardFrozen)) dialog = "card_payment" }
                             Tab.HISTORY -> History(txs) { selectedReceipt = it }
                             Tab.PROFILE -> Profile(accountEmail, accountFullName, onSignOut)
                         }
