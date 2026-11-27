@@ -96,7 +96,7 @@ internal fun MoneyDialog(
         context.getSharedPreferences("neon_transfer_favorites_$accountKey", android.content.Context.MODE_PRIVATE)
     }
     var favorites by remember {
-        mutableStateOf(favoritesPrefs.getStringSet("recipients", emptySet())?.toList()?.sorted() ?: emptyList())
+        mutableStateOf(favoritesPrefs.getStringSet("recipients", emptySet())?.toList()?.sorted() ?: emptyList<String>())
     }
     val liveError = if (amount.isNotBlank()) {
         operationFailureReason(kind, parsedAmount, balance, recipient, cardFrozen, cardLimit, bank = bank)
