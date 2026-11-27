@@ -87,6 +87,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
     val context = LocalContext.current
     val authPrefs = remember(context) { context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE) }
     val accountEmail = authPrefs.getString("current_email", "") ?: ""
+    val accountFullName = authPrefs.getString("name_$accountEmail", accountEmail.substringBefore("@")) ?: accountEmail.substringBefore("@")
     val accountKey = remember(accountEmail) { android.util.Base64.encodeToString(accountEmail.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING) }
     val prefs = remember(context, accountKey) { context.getSharedPreferences("neon_wallet_demo_$accountKey", android.content.Context.MODE_PRIVATE) }
     var tab by remember { mutableStateOf(Tab.HOME) }
@@ -113,7 +114,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
         }
         prefs.edit().putLong("balance", balance).putString("transactions", array.toString())
             .putBoolean("show_balance", showBalance).putBoolean("card_frozen", cardFrozen)
-            .putLong("card_limit", cardLimit).apply()
+            .putLong("card_limit", cardLimit).commit()
     }
     MaterialTheme(colorScheme = darkColorScheme(background = Bg, surface = Panel, primary = Purple, onSurface = White)) {
         Box(Modifier.fillMaxSize().background(Bg)) {
@@ -124,17 +125,17 @@ private fun WalletMain(onSignOut: () -> Unit) {
                     }, label = "neon_wallet_tabs") { screen ->
                         when (screen) {
                             Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance }, { dialog = "topup" },
-                                { dialog = "transfer" }, { dialog = "withdraw" }, txs, { tab = Tab.CARDS }, { tab = Tab.HISTORY },
+                                { if (cardFrozen) dialog = "card_frozen" else dialog = "transfer" }, { if (cardFrozen) dialog = "card_frozen" else dialog = "withdraw" }, txs, { tab = Tab.CARDS }, { tab = Tab.HISTORY },
                                 { selectedReceipt = it })
-                            Tab.PAYMENTS -> Payments(balance, cardFrozen, cardLimit, { dialog = "transfer" }, { dialog = "topup" }, { dialog = "withdraw" }) {
+                            Tab.PAYMENTS -> Payments(balance, cardFrozen, cardLimit, { if (cardFrozen) dialog = "card_frozen" else dialog = "transfer" }, { dialog = "topup" }, { if (cardFrozen) dialog = "card_frozen" else dialog = "withdraw" }) {
                                 if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) dialog = "qr"
                                 else cameraPermission.launch(android.Manifest.permission.CAMERA)
                             }
-                            Tab.CARDS -> Cards(cardFrozen, cardLimit, {
+                            Tab.CARDS -> Cards(cardFrozen, cardLimit, accountFullName, {
                                 cardFrozen = !cardFrozen
                             }, { cardLimit = it.coerceAtLeast(0L) }) { if (canUseCard(cardFrozen)) dialog = "card_payment" }
                             Tab.HISTORY -> History(txs) { selectedReceipt = it }
-                            Tab.PROFILE -> Profile(accountEmail, onSignOut)
+                            Tab.PROFILE -> Profile(accountEmail, accountFullName, onSignOut)
                         }
                     }
                 }
@@ -145,6 +146,14 @@ private fun WalletMain(onSignOut: () -> Unit) {
                     "qr" -> QRScannerDialog(
                         onClose = { dialog = null },
                         onScanned = { value -> qrRecipient = value; dialog = "transfer" }
+                    )
+                     "card_frozen" -> AlertDialog(
+                        onDismissRequest = { dialog = null },
+                        containerColor = Panel,
+                        title = { Text("Карта заморожена", color = White) },
+                        text = { Text("Исходящие операции отключены. Разморозь карту во вкладке «Карты», чтобы снова переводить, выводить и оплачивать.", color = Muted) },
+                        confirmButton = { TextButton(onClick = { dialog = null; tab = Tab.CARDS }) { Text("К картам", color = Purple) } },
+                        dismissButton = { TextButton(onClick = { dialog = null }) { Text("Закрыть", color = Muted) } }
                     )
                     "camera_permission" -> AlertDialog(
                         onDismissRequest = { dialog = null },
@@ -167,6 +176,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                             else -> "Перевод · $recipient"
                         }
                         balance = if (incoming) balance + amount else balance - amount
+                        prefs.edit().putLong("balance", balance).commit()
                         val now = System.currentTimeMillis()
                         val date = java.text.SimpleDateFormat("dd MMM · HH:mm", Locale("ru")).format(java.util.Date(now))
                         val operationId = "NW$now"
