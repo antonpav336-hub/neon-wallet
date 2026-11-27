@@ -1,45 +1,61 @@
 package com.neonwallet.app
 
-import android.os.Bundle
 import android.content.Intent
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.animateColorAsState
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import org.json.JSONArray
-import org.json.JSONObject
-import androidx.compose.ui.*
-import androidx.compose.ui.draw.*
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.*
-import java.text.NumberFormat
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
-
 
 @Composable
 internal fun MoneyDialog(
@@ -53,140 +69,418 @@ internal fun MoneyDialog(
     onConfirm: (Long, String, String) -> Boolean
 ) {
     var amount by remember { mutableStateOf("") }
-    var who by remember { mutableStateOf("") }
-    var selectedBank by remember { mutableStateOf("NEON") }
+    var recipient by remember { mutableStateOf("") }
+    var bank by remember { mutableStateOf("NEON") }
     var stage by remember { mutableStateOf("editing") }
     var failure by remember { mutableStateOf<String?>(null) }
     var receiptId by remember { mutableStateOf("") }
     var receiptTime by remember { mutableStateOf("") }
-    val parsedAmount = amount.toLongOrNull() ?: 0L
-    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val favoritePrefs = remember(context) { val email = context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE).getString("current_email", "") ?: ""; val key = android.util.Base64.encodeToString(email.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING); context.getSharedPreferences("neon_transfer_favorites_$key", android.content.Context.MODE_PRIVATE) }
-    var favorites by remember { mutableStateOf(favoritePrefs.getStringSet("recipients", mutableSetOf<String>())?.toList()?.sorted() ?: emptyList<String>()) }
-    val title = when (kind) { "transfer" -> "Новый перевод"; "withdraw" -> "Вывод средств"; "card_payment" -> "Оплата картой"; else -> "Пополнение" }
-    val action = when (kind) { "transfer" -> "Перевести"; "withdraw" -> "Вывести"; "card_payment" -> "Оплатить"; else -> "Пополнить" }
-    AlertDialog(
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    val parsedAmount = amount.toLongOrNull() ?: 0L
+    val transfer = kind == "transfer"
+    val action = when (kind) {
+        "transfer" -> "Перевести"
+        "withdraw" -> "Вывести"
+        "card_payment" -> "Оплатить"
+        else -> "Пополнить"
+    }
+    val favoritesPrefs = remember(context) {
+        val email = context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE)
+            .getString("current_email", "") ?: ""
+        val accountKey = android.util.Base64.encodeToString(
+            email.toByteArray(),
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
+        )
+        context.getSharedPreferences("neon_transfer_favorites_$accountKey", android.content.Context.MODE_PRIVATE)
+    }
+    var favorites by remember {
+        mutableStateOf(favoritesPrefs.getStringSet("recipients", emptySet())?.toList()?.sorted() ?: emptyList())
+    }
+    val liveError = if (amount.isNotBlank()) {
+        operationFailureReason(kind, parsedAmount, balance, recipient, cardFrozen, cardLimit, bank = bank)
+    } else null
+    val canSend = stage == "editing" && amount.isNotBlank() && liveError == null
+
+    BackHandler(enabled = true) {
+        if (stage != "processing") onClose()
+    }
+
+    Dialog(
         onDismissRequest = { if (stage != "processing") onClose() },
-        containerColor = Panel,
-        title = { Text(when (stage) { "processing" -> "Обрабатываем операцию"; "success" -> "Операция выполнена"; "error" -> "Операция отклонена"; else -> title }, color = White, fontWeight = FontWeight.Bold) },
-        text = {
-            AnimatedContent(targetState = stage, transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) }, label = "money_operation_stage") { current ->
-                when (current) {
-                    "processing" -> Column(Modifier.fillMaxWidth().padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        val pulseTransition = rememberInfiniteTransition(label = "processing_pulse")
-                        val pulse by pulseTransition.animateFloat(initialValue = 0.94f, targetValue = 1.08f, animationSpec = infiniteRepeatable(animation = tween(520), repeatMode = RepeatMode.Reverse), label = "processing_pulse")
-                        Box(Modifier.size(92.dp).graphicsLayer { scaleX = pulse; scaleY = pulse }, contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Purple, strokeWidth = 4.dp, modifier = Modifier.size(76.dp))
-                            Icon(Icons.Default.Bolt, null, tint = White, modifier = Modifier.size(30.dp))
-                        }
-                        Spacer(Modifier.height(18.dp))
-                        Text("Проверяем данные и обновляем демо-баланс…", color = Muted, fontSize = 13.sp)
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(modifier = Modifier.fillMaxSize(), color = Bg, shape = RoundedCornerShape(0.dp)) {
+            Column(Modifier.fillMaxSize().background(Bg)) {
+                Row(
+                    Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onClose, enabled = stage != "processing") {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = White)
                     }
-                    "success" -> Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        OperationStatusMark(success = true)
-                        Spacer(Modifier.height(14.dp))
-                        Text(when (kind) { "topup" -> "Пополнение выполнено"; "withdraw" -> "Вывод оформлен"; "card_payment" -> "Оплата выполнена"; else -> "Перевод отправлен" }, color = Green, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        Text(money(parsedAmount), color = White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
-                        Text(if (who.isBlank()) "Демо-пополнение" else "$who · $selectedBank", color = Muted, fontSize = 13.sp)
-                        Spacer(Modifier.height(10.dp))
-                        Text("Выполнено: " + receiptTime, color = Muted, fontSize = 10.sp)
-                        Text("Банк назначения: " + selectedBank, color = Muted, fontSize = 11.sp)
-                        Text("ID операции: " + receiptId, color = Muted, fontSize = 10.sp)
-                        OutlinedButton(onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(receiptId)) }) {
-                            Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(15.dp)); Spacer(Modifier.width(5.dp)); Text("Скопировать ID")
-                        }
-                        OutlinedButton(onClick = {
-                            val receipt = "NEON WALLET · ДЕМО-ЧЕК\n" + action + ": " + money(parsedAmount) + "\nПолучатель: " + who + "\nБанк: " + selectedBank + "\nID: " + receiptId + "\n" + receiptTime + "\nРеальный платёж не выполнялся."
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, receipt) }
-                            context.startActivity(Intent.createChooser(shareIntent, "Поделиться чеком"))
-                        }) {
-                            Icon(Icons.Default.Share, null, modifier = Modifier.size(15.dp)); Spacer(Modifier.width(5.dp)); Text("Поделиться чеком")
-                        }
-                    }
-                    "error" -> Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        OperationStatusMark(success = false)
-                        Spacer(Modifier.height(14.dp))
-                        Text("Не удалось выполнить", color = Color(0xFFFF858D), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        Text(failure ?: "Операция отклонена.", color = Muted, fontSize = 13.sp)
-                    }
-                    else -> Column {
-                        OutlinedTextField(value = who, onValueChange = { who = it; failure = null }, label = { Text(when (kind) { "transfer" -> "Кому (демо)"; "withdraw" -> "Куда вывести (демо)"; "card_payment" -> "Магазин / назначение"; else -> "Источник (демо)" }) }, singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
-                        if (kind == "transfer") {
-                            Text("Банк назначения", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
-                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf("NEON", "ВТБ", "Сбер", "Т-Банк", "Альфа-Банк", "По номеру / ID").forEach { bank ->
-                                    FilterChip(selected = selectedBank == bank, onClick = { selectedBank = bank }, label = { Text(bank) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Purple.copy(alpha = .28f), selectedLabelColor = White, labelColor = Muted))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        when (stage) {
+                            "processing" -> "Обработка перевода"
+                            "success" -> "Чек операции"
+                            "error" -> "Операция отклонена"
+                            else -> if (transfer) "Перевод" else action
+                        },
+                        color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Icon(Icons.Default.Bolt, null, tint = Purple, modifier = Modifier.size(28.dp))
+                }
+                HorizontalDivider(color = White.copy(alpha = .07f))
+                AnimatedContent(
+                    targetState = stage,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(140)) },
+                    label = "operation_stage"
+                ) { current ->
+                    when (current) {
+                        "processing" -> ProcessingContent()
+                        "success" -> ReceiptContent(
+                            kind, parsedAmount, recipient, bank, receiptTime, receiptId,
+                            onCopy = { clipboard.setText(AnnotatedString(receiptId)) },
+                            onShare = {
+                                val receipt = "NEON WALLET · ДЕМО-ЧЕК\nОперация: $action\nСумма: $parsedAmount ₽\nПолучатель: $recipient\nБанк: $bank\nВремя: $receiptTime\nID: $receiptId\nДемо-режим: реальные деньги не перемещались."
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, receipt)
                                 }
+                                context.startActivity(Intent.createChooser(sendIntent, "Поделиться чеком"))
                             }
-                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                (listOf("Alex", "Мама", "Самому себе") + favorites).distinct().forEach { preset ->
-                                    TextButton(onClick = { who = preset; failure = null }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text(preset, color = Purple, fontSize = 11.sp) }
+                        )
+                        "error" -> ErrorContent(failure ?: "Проверь данные операции.")
+                        else -> Column(
+                            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding()
+                                .padding(horizontal = 20.dp, vertical = 18.dp),
+                            verticalArrangement = Arrangement.spacedBy(18.dp)
+                        ) {
+                            if (transfer) {
+                                Text("Получатель", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Row(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+                                        .background(Panel)
+                                        .border(1.dp, Purple.copy(alpha = .35f), RoundedCornerShape(22.dp))
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        Modifier.size(54.dp).clip(CircleShape)
+                                            .background(Brush.linearGradient(listOf(Purple, Green))),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(recipient.firstOrNull()?.uppercase() ?: "＋", color = Color.White,
+                                            fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(Modifier.width(13.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(recipient.ifBlank { "Выберите получателя" }, color = White,
+                                            fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                                        Text("Имя · телефон · NEON ID", color = Muted, fontSize = 12.sp)
+                                    }
+                                    Icon(Icons.Default.Edit, null, tint = Purple, modifier = Modifier.size(18.dp))
                                 }
-                            }
-                            if (who.isNotBlank() && who !in favorites) {
-                                TextButton(onClick = {
-                                    favorites = (favorites + who.trim()).distinct().take(12)
-                                    favoritePrefs.edit().putStringSet("recipients", favorites.toSet()).apply()
-                                }, contentPadding = PaddingValues(horizontal = 4.dp)) {
-                                    Icon(Icons.Default.StarBorder, null, tint = Purple, modifier = Modifier.size(15.dp))
-                                    Text("Добавить получателя в избранное", color = Purple, fontSize = 11.sp)
+                                Row(
+                                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    (listOf("Alex", "Мама", "Самому себе") + favorites).distinct().forEach { name ->
+                                        RecipientChip(name, recipient == name) { recipient = name; failure = null }
+                                    }
                                 }
+                                OutlinedTextField(
+                                    value = recipient,
+                                    onValueChange = { recipient = it; failure = null },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Имя, телефон или NEON ID") },
+                                    leadingIcon = { Icon(Icons.Default.Person, null, tint = Purple) },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = neonFieldColors()
+                                )
+                                if (recipient.isNotBlank() && recipient.trim() !in favorites) {
+                                    TextButton(onClick = {
+                                        favorites = (favorites + recipient.trim()).distinct().take(12)
+                                        favoritesPrefs.edit().putStringSet("recipients", favorites.toSet()).apply()
+                                    }) {
+                                        Icon(Icons.Default.StarBorder, null, tint = Purple)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Добавить в избранное", color = Purple)
+                                    }
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("Банк назначения", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    Row(
+                                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        listOf("NEON", "ВТБ", "Сбер", "Т-Банк", "Альфа-Банк").forEach { item ->
+                                            BankChip(item, bank == item) { bank = item; failure = null }
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text("Детали операции", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                OutlinedTextField(
+                                    value = recipient, onValueChange = { recipient = it; failure = null },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Получатель / назначение") },
+                                    singleLine = true, shape = RoundedCornerShape(16.dp), colors = neonFieldColors()
+                                )
                             }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(500, 1000, 3000, 5000).forEach { preset ->
-                                AssistChip(onClick = { amount = preset.toString(); failure = null }, label = { Text(preset.toString() + " ₽") })
+                            Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                                Text("Сумма, ₽", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Row(
+                                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                                ) {
+                                    listOf(500L, 1000L, 3000L, 5000L).forEach { preset ->
+                                        AmountChip(preset, parsedAmount == preset) {
+                                            amount = preset.toString(); failure = null
+                                        }
+                                    }
+                                }
+                                OutlinedTextField(
+                                    value = amount,
+                                    onValueChange = { amount = it.filter(Char::isDigit).take(9); failure = null },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Введите сумму") },
+                                    leadingIcon = { Text("₽", color = Purple, fontSize = 22.sp, fontWeight = FontWeight.Bold) },
+                                    singleLine = true, shape = RoundedCornerShape(18.dp), colors = neonFieldColors()
+                                )
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Доступно", color = Muted, fontSize = 12.sp)
+                                    Text("$balance ₽", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                Text(
+                                    liveError ?: if (amount.isBlank()) "Укажи сумму для расчёта остатка."
+                                    else "После операции останется: ${(balance - parsedAmount).coerceAtLeast(0)} ₽",
+                                    color = if (liveError != null) Color(0xFFFF858D) else Green,
+                                    fontSize = 12.sp, minLines = 1
+                                )
+                                if (failure != null) Text(failure!!, color = Color(0xFFFF858D), fontSize = 12.sp)
                             }
+                            Text(
+                                "NEON WALLET · ДЕМО-РЕЖИМ. Реальные деньги не перемещаются.",
+                                color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                            )
                         }
-                        OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(9); failure = null }, label = { Text("Сумма в ₽") }, singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
-                        val liveError = if (amount.isNotBlank()) operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit, bank = selectedBank) else null
-                        if (liveError != null) Text(liveError, color = Color(0xFFFF929B), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
-                        else if (failure != null) Text(failure!!, color = Color(0xFFFF858D), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
-                        Text("Демо-режим: реальные деньги не перемещаются.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
                     }
                 }
-            }
-        },
-        confirmButton = {
-            when (stage) {
-                "editing" -> TextButton(onClick = {
-                    val reason = operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit, bank = selectedBank)
-                    if (reason != null) { failure = reason; stage = "error" }
-                    else {
-                        if (!onBegin()) { failure = "Операция уже обрабатывается."; return@TextButton }
-                        stage = "processing"
-                        scope.launch {
-                            try {
-                                delay(820)
-                                val accepted = onConfirm(parsedAmount, who.trim(), selectedBank)
-                                if (accepted) {
-                                receiptId = "NW" + System.currentTimeMillis().toString()
-                                receiptTime = java.text.SimpleDateFormat("dd MMM · HH:mm", Locale("ru")).format(java.util.Date())
-                                stage = "success"
-                            } else {
-                                failure = operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit, bank = selectedBank) ?: "Операция уже обрабатывается или была отклонена."
-                                stage = "error"
+                if (stage == "editing") {
+                    Column(
+                        Modifier.fillMaxWidth().navigationBarsPadding()
+                            .background(Bg).padding(horizontal = 20.dp, vertical = 14.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (!canSend) {
+                                    failure = liveError ?: "Укажи сумму и получателя."
+                                } else if (!onBegin()) {
+                                    failure = "Операция уже обрабатывается."
+                                } else {
+                                    stage = "processing"
+                                    scope.launch {
+                                        try {
+                                            delay(820)
+                                            receiptId = "NW" + System.currentTimeMillis()
+                                            receiptTime = SimpleDateFormat("dd MMM · HH:mm", Locale("ru")).format(Date())
+                                            if (onConfirm(parsedAmount, recipient.trim(), bank)) {
+                                                stage = "success"
+                                            } else {
+                                                failure = operationFailureReason(kind, parsedAmount, balance, recipient,
+                                                    cardFrozen, cardLimit, bank = bank) ?: "Операция отклонена. Проверь данные."
+                                                stage = "error"
+                                            }
+                                        } catch (_: Exception) {
+                                            failure = "Не удалось завершить демо-операцию. Попробуй ещё раз."
+                                            stage = "error"
+                                        } finally {
+                                            onFinish()
+                                        }
+                                    }
                                 }
-                            } catch (_: Exception) {
-                                failure = "Не удалось завершить демо-операцию. Попробуй ещё раз."
-                                stage = "error"
-                            } finally {
-                                onFinish()
-                            }
+                            },
+                            enabled = canSend,
+                            modifier = Modifier.fillMaxWidth().height(58.dp)
+                                .shadow(if (canSend) 16.dp else 0.dp, RoundedCornerShape(18.dp), ambientColor = Purple),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Purple, disabledContainerColor = Panel,
+                                contentColor = Color.White, disabledContentColor = Muted
+                            )
+                        ) {
+                            Text(
+                                if (parsedAmount > 0) "$action · $parsedAmount ₽  →" else "$action  →",
+                                fontSize = 17.sp, fontWeight = FontWeight.Bold
+                            )
                         }
                     }
-                }) { Text(action, color = Purple) }
-                "success", "error" -> TextButton(onClick = onClose) { Text("Готово", color = Purple, fontWeight = FontWeight.Bold) }
-                else -> {}
+                } else if (stage == "success" || stage == "error") {
+                    Button(
+                        onClick = onClose,
+                        modifier = Modifier.fillMaxWidth().navigationBarsPadding()
+                            .padding(horizontal = 20.dp, vertical = 14.dp).height(56.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Purple)
+                    ) { Text("Готово", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun neonFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = White, unfocusedTextColor = White, cursorColor = Purple,
+    focusedBorderColor = Purple, unfocusedBorderColor = Muted.copy(alpha = .5f),
+    focusedLabelColor = Purple, unfocusedLabelColor = Muted
+)
+
+@Composable
+private fun RecipientChip(name: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected, onClick = onClick,
+        label = { Text(name, maxLines = 1) },
+        leadingIcon = {
+            Box(Modifier.size(22.dp).clip(CircleShape).background(Purple.copy(alpha = .18f)),
+                contentAlignment = Alignment.Center) {
+                Text(name.firstOrNull()?.uppercase() ?: "?", color = Purple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         },
-        dismissButton = { if (stage == "editing" || stage == "error") TextButton(onClick = { if (stage == "error") { stage = "editing"; failure = null } else onClose() }) { Text(if (stage == "error") "Изменить" else "Отмена", color = Muted) } }
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = Purple.copy(alpha = .25f), selectedLabelColor = White, labelColor = Muted
+        )
     )
+}
+
+@Composable
+private fun BankChip(bank: String, selected: Boolean, onClick: () -> Unit) {
+    val accent = when (bank) {
+        "ВТБ" -> Color(0xFF54A7FF)
+        "Сбер" -> Green
+        "Т-Банк" -> Color.White
+        "Альфа-Банк" -> Color(0xFFFF646E)
+        else -> Purple
+    }
+    Surface(
+        onClick = onClick,
+        color = if (selected) accent.copy(alpha = .18f) else Panel,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, if (selected) accent else Muted.copy(alpha = .25f))
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
+            Spacer(Modifier.width(7.dp))
+            Text(bank, color = if (selected) White else Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun AmountChip(value: Long, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected, onClick = onClick,
+        label = { Text(java.text.NumberFormat.getIntegerInstance(Locale("ru")).format(value) + " ₽", maxLines = 1) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = Purple.copy(alpha = .25f), selectedLabelColor = White, labelColor = Muted
+        )
+    )
+}
+
+@Composable
+private fun ProcessingContent() {
+    val transition = rememberInfiniteTransition(label = "processing_pulse")
+    val pulse by transition.animateFloat(
+        initialValue = .88f, targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(tween(560), repeatMode = RepeatMode.Reverse),
+        label = "processing_scale"
+    )
+    Column(
+        Modifier.fillMaxSize().padding(28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(Modifier.size(138.dp).graphicsLayer { scaleX = pulse; scaleY = pulse }, contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().border(2.dp, Purple.copy(alpha = .5f), CircleShape))
+            CircularProgressIndicator(color = Purple, strokeWidth = 4.dp, modifier = Modifier.size(92.dp))
+            androidx.compose.material3.Icon(Icons.Default.Bolt, null, tint = Green, modifier = Modifier.size(38.dp))
+        }
+        Spacer(Modifier.height(28.dp))
+        Text("Отправляем перевод", color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text("Проверяем данные и обновляем демо-баланс…", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun ReceiptContent(
+    kind: String, amount: Long, recipient: String, bank: String, time: String, id: String,
+    onCopy: () -> Unit, onShare: () -> Unit
+) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(14.dp))
+        OperationStatusMark(success = true)
+        Spacer(Modifier.height(18.dp))
+        Text(if (kind == "transfer") "Перевод отправлен" else "Операция выполнена",
+            color = Green, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        Text("$amount ₽", color = White, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(22.dp))
+        ReceiptLine("Получатель", recipient.ifBlank { "—" })
+        ReceiptLine("Банк назначения", bank)
+        ReceiptLine("Выполнено", time)
+        ReceiptLine("ID операции", id)
+        Spacer(Modifier.height(18.dp))
+        OutlinedButton(onClick = onCopy, modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, Purple), colors = ButtonDefaults.outlinedButtonColors(contentColor = White)) {
+            androidx.compose.material3.Icon(Icons.Default.ContentCopy, null)
+            Spacer(Modifier.width(8.dp)); Text("Скопировать ID")
+        }
+        OutlinedButton(onClick = onShare, modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, Purple), colors = ButtonDefaults.outlinedButtonColors(contentColor = White)) {
+            androidx.compose.material3.Icon(Icons.Default.Share, null)
+            Spacer(Modifier.width(8.dp)); Text("Поделиться чеком")
+        }
+        Text("Демо-операция · реальные деньги не перемещаются", color = Muted, fontSize = 10.sp,
+            textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
+    }
+}
+
+@Composable
+private fun ReceiptLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = Muted, fontSize = 13.sp)
+        Spacer(Modifier.width(12.dp))
+        Text(value, color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End)
+    }
+    HorizontalDivider(color = White.copy(alpha = .07f))
+}
+
+@Composable
+private fun ErrorContent(reason: String) {
+    val shake by animateFloatAsState(targetValue = 1f, animationSpec = tween(420), label = "error_shake")
+    Column(
+        Modifier.fillMaxSize().padding(28.dp).graphicsLayer {
+            translationX = kotlin.math.sin(shake * Math.PI * 8).toFloat() * (1f - shake) * 10f
+        },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        OperationStatusMark(success = false)
+        Spacer(Modifier.height(20.dp))
+        Text("Не удалось выполнить", color = Color(0xFFFF858D), fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(10.dp))
+        Text(reason, color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
+    }
 }
 
 @Composable
@@ -194,26 +488,27 @@ internal fun OperationStatusMark(success: Boolean) {
     var started by remember { mutableStateOf(false) }
     LaunchedEffect(success) { started = true }
     val progress by animateFloatAsState(if (started) 1f else 0f, tween(520), label = "status_mark_progress")
-    val tint by animateColorAsState(if (success) Green else Color(0xFFFF6675), tween(220), label = "status_mark_color")
-    val shake by animateFloatAsState(if (started && !success) 1f else 0f, tween(360), label = "status_mark_shake")
-    Canvas(Modifier.size(88.dp).graphicsLayer {
-        val wobble = if (success) 0f else kotlin.math.sin(shake * Math.PI * 8).toFloat() * (1f - shake) * 9f
+    Canvas(Modifier.size(94.dp).graphicsLayer {
+        val wobble = if (success) 0f else kotlin.math.sin(progress * Math.PI * 8).toFloat() * (1f - progress) * 9f
         translationX = wobble
         val bounce = if (success) kotlin.math.sin(progress * Math.PI).toFloat() * .12f else 0f
         scaleX = (if (success) .86f + .14f * progress else 1f) + bounce
         scaleY = (if (success) .86f + .14f * progress else 1f) + bounce
     }) {
         val stroke = 5.dp.toPx()
-        drawCircle(tint.copy(alpha = .13f), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
-        drawCircle(tint, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        val tint = if (success) Green else Color(0xFFFF6675)
+        drawCircle(tint.copy(alpha = .13f), style = Stroke(stroke))
+        drawCircle(tint, style = Stroke(stroke))
         if (success) {
-            val firstEnd = .25f + .18f * progress
-            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .52f), androidx.compose.ui.geometry.Offset(size.width * firstEnd, size.height * (.52f + .16f * progress)), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            val secondProgress = ((progress - .35f) / .65f).coerceIn(0f, 1f)
-            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f), androidx.compose.ui.geometry.Offset(size.width * (.43f + .33f * secondProgress), size.height * (.68f - .34f * secondProgress)), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .52f),
+                androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f), stroke, cap = StrokeCap.Round)
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f),
+                androidx.compose.ui.geometry.Offset(size.width * .77f, size.height * .32f), stroke, cap = StrokeCap.Round)
         } else {
-            drawLine(tint.copy(alpha = progress), androidx.compose.ui.geometry.Offset(size.width * .34f, size.height * .34f), androidx.compose.ui.geometry.Offset(size.width * (.34f + .32f * progress), size.height * (.34f + .32f * progress)), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            drawLine(tint.copy(alpha = progress), androidx.compose.ui.geometry.Offset(size.width * .66f, size.height * .34f), androidx.compose.ui.geometry.Offset(size.width * (.66f - .32f * progress), size.height * (.34f + .32f * progress)), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .34f, size.height * .34f),
+                androidx.compose.ui.geometry.Offset(size.width * .66f, size.height * .66f), stroke, cap = StrokeCap.Round)
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .66f, size.height * .34f),
+                androidx.compose.ui.geometry.Offset(size.width * .34f, size.height * .66f), stroke, cap = StrokeCap.Round)
         }
     }
 }
