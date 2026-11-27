@@ -71,8 +71,8 @@ internal fun MoneyDialog(
     onClose: () -> Unit,
     onBegin: () -> Boolean,
     onFinish: () -> Unit,
-    onConfirm: (Long, String, String) -> Boolean,
-    initialRecipient: String = ""
+    initialRecipient: String = "",
+    onConfirm: (Long, String, String) -> Boolean
 ) {
     var amount by remember { mutableStateOf("") }
     var recipient by remember { mutableStateOf(initialRecipient) }
