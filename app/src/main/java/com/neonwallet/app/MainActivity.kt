@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class Tx(val title: String, val date: String, val amount: Long, val incoming: Boolean)
+private data class Tx(val title: String, val date: String, val amount: Long, val incoming: Boolean, val recipient: String = "", val status: String = "Успешно", val timestamp: Long = System.currentTimeMillis())
 private enum class Tab { HOME, CARDS, HISTORY, PROFILE }
 
 @Composable
@@ -75,13 +75,14 @@ private fun WalletMain(onSignOut: () -> Unit) {
     var dialog by remember { mutableStateOf<String?>(null) }
     var txs by remember { mutableStateOf(loadTransactions(prefs)) }
     var cardFrozen by remember { mutableStateOf(prefs.getBoolean("card_frozen", false)) }
+    var isSubmitting by remember { mutableStateOf(false) }
     val accountEmail = remember(context) { context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE).getString("current_email", "") ?: "" }
     SideEffect {
         val array = JSONArray()
         txs.forEach { tx ->
             array.put(JSONObject().apply {
                 put("title", tx.title); put("date", tx.date)
-                put("amount", tx.amount); put("incoming", tx.incoming)
+                put("amount", tx.amount); put("incoming", tx.incoming); put("recipient", tx.recipient); put("status", tx.status); put("timestamp", tx.timestamp)
             })
         }
         prefs.edit().putLong("balance", balance).putString("transactions", array.toString()).apply()
@@ -96,10 +97,10 @@ private fun WalletMain(onSignOut: () -> Unit) {
                         when (screen) {
                             Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance },
                                 { dialog = "topup" }, { dialog = "transfer" }, { dialog = "withdraw" }, txs)
-                            Tab.CARDS -> Cards(cardFrozen) {
+                            Tab.CARDS -> Cards(cardFrozen, {
                                 cardFrozen = !cardFrozen
                                 prefs.edit().putBoolean("card_frozen", cardFrozen).apply()
-                            }
+                            }) { if (canUseCard(cardFrozen)) dialog = "card_payment" }
                             Tab.HISTORY -> History(txs)
                             Tab.PROFILE -> Profile(accountEmail, onSignOut)
                         }
@@ -108,16 +109,21 @@ private fun WalletMain(onSignOut: () -> Unit) {
                 BottomBar(tab) { tab = it }
             }
             dialog?.let { kind ->
-                MoneyDialog(kind, balance, onClose = { dialog = null }) { amount, recipient ->
-                    if (canSubmitMoneyOperation(kind, amount, balance, recipient)) {
+                MoneyDialog(kind, balance, cardFrozen, onClose = { dialog = null }) { amount, recipient ->
+                    if (canStartOperation(isSubmitting) && canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen)) {
+                        isSubmitting = true
                         val incoming = kind == "topup"
                         val title = when (kind) {
                             "topup" -> "Демо-пополнение"
                             "withdraw" -> "Демо-вывод"
+                            "card_payment" -> "Оплата картой · $recipient"
                             else -> "Перевод · $recipient"
                         }
                         balance += if (incoming) amount else -amount
-                        txs = (listOf(Tx(title, "Только что", if (incoming) amount else -amount, incoming)) + txs).take(100)
+                        val now = System.currentTimeMillis()
+                        val date = java.text.SimpleDateFormat("dd MMM, HH:mm", Locale("ru")).format(java.util.Date(now))
+                        txs = (listOf(Tx(title, date, if (incoming) amount else -amount, incoming, recipient.trim(), "Успешно", now)) + txs).take(100)
+                        isSubmitting = false
                     }
                     dialog = null
                 }
@@ -162,7 +168,9 @@ private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () 
                                 Icon(if (visible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = White, modifier = Modifier.size(17.dp))
                             }
                         }
-                        Text(if (visible) money(balance) else "•••••• ₽", color = White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                        AnimatedContent(targetState = if (visible) money(balance) else "•••••• ₽", transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) }, label = "balance_visibility") { value ->
+                            Text(value, color = White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                        }
                         Spacer(Modifier.height(8.dp))
                         Text("Демо-счёт · Российский рубль", color = Color(0xFFC7B9DB), fontSize = 12.sp)
                         Spacer(Modifier.height(24.dp))
@@ -215,7 +223,7 @@ private fun TransactionRow(tx: Tx) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(tx.title, color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text(tx.date, color = Muted, fontSize = 11.sp)
+            Text("${tx.date} · ${tx.status}", color = Muted, fontSize = 11.sp)
         }
         val signedAmount = when {
             tx.amount > 0 -> "+" + money(tx.amount)
@@ -227,7 +235,7 @@ private fun TransactionRow(tx: Tx) {
 }
 
 @Composable
-private fun Cards(frozen: Boolean, onToggleFreeze: () -> Unit) {
+private fun Cards(frozen: Boolean, onToggleFreeze: () -> Unit, onPay: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Header()
         Text("Мои карты", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
@@ -263,18 +271,38 @@ private fun Cards(frozen: Boolean, onToggleFreeze: () -> Unit) {
             OutlinedButton(onClick = onToggleFreeze, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
                 Icon(if (frozen) Icons.Default.LockOpen else Icons.Default.AcUnit, null); Spacer(Modifier.width(6.dp)); Text(if (frozen) "Разморозить" else "Заморозить")
             }
+            Button(onClick = onPay, enabled = !frozen, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = Purple)) {
+                Icon(Icons.Default.ShoppingBag, null); Spacer(Modifier.width(6.dp)); Text("Оплатить")
+            }
         }
         Text("Демонстрационный макет. Карта не привязана к платёжной системе; реквизиты и платежи не настоящие.", Modifier.padding(20.dp), color = Muted, fontSize = 12.sp)
     }
 }
 
 @Composable
+private fun SummaryTile(label: String, amount: Long, tint: Color, modifier: Modifier = Modifier) {
+    Column(modifier.clip(RoundedCornerShape(16.dp)).background(Panel).padding(14.dp)) {
+        Text(label, color = Muted, fontSize = 11.sp)
+        Text(money(amount), color = tint, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
 private fun History(txs: List<Tx>) {
+    var query by remember { mutableStateOf("") }
+    val filtered = txs.filter { it.title.contains(query, true) || it.recipient.contains(query, true) || it.status.contains(query, true) }
+    val income = txs.filter { it.amount > 0 }.sumOf { it.amount }
+    val expense = txs.filter { it.amount < 0 }.sumOf { kotlin.math.abs(it.amount) }
     Column(Modifier.fillMaxSize()) {
         Header()
         Text("История операций", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text("Все движения средств", Modifier.padding(start = 22.dp, top = 5.dp, bottom = 18.dp), color = Muted, fontSize = 13.sp)
-        LazyColumn { items(txs) { TransactionRow(it) } }
+        Text("Все движения средств", Modifier.padding(start = 22.dp, top = 5.dp, bottom = 14.dp), color = Muted, fontSize = 13.sp)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SummaryTile("Доходы", income, Green, Modifier.weight(1f))
+            SummaryTile("Расходы", expense, Color(0xFFFF9292), Modifier.weight(1f))
+        }
+        OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), singleLine = true, placeholder = { Text("Поиск по операции или получателю", color = Muted) }, leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) }, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted))
+        LazyColumn { items(filtered) { TransactionRow(it) } }
     }
 }
 
@@ -320,17 +348,17 @@ private fun BottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
 }
 
 @Composable
-private fun MoneyDialog(kind: String, balance: Long, onClose: () -> Unit, onConfirm: (Long, String) -> Unit) {
+private fun MoneyDialog(kind: String, balance: Long, cardFrozen: Boolean, onClose: () -> Unit, onConfirm: (Long, String) -> Unit) {
     var amount by remember { mutableStateOf("") }
     var who by remember { mutableStateOf("") }
-    val transfer = kind == "transfer"
+    val transfer = kind == "transfer" || kind == "card_payment"
     val parsedAmount = amount.toLongOrNull() ?: 0L
-    val canSubmit = canSubmitMoneyOperation(kind, parsedAmount, balance, who)
+    val canSubmit = canSubmitMoneyOperation(kind, parsedAmount, balance, who, cardFrozen)
     AlertDialog(onDismissRequest = onClose, containerColor = Panel,
-        title = { Text(if (transfer) "Новый перевод" else "Пополнение", color = White, fontWeight = FontWeight.Bold) },
+        title = { Text(when (kind) { "transfer" -> "Новый перевод"; "withdraw" -> "Вывод средств"; "card_payment" -> "Оплата картой"; else -> "Пополнение" }, color = White, fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                OutlinedTextField(value = who, onValueChange = { who = it }, label = { Text(when (kind) { "transfer" -> "Кому (демо)"; "withdraw" -> "Куда вывести (демо)"; else -> "Источник (демо)" }) }, singleLine = true,
+                OutlinedTextField(value = who, onValueChange = { who = it }, label = { Text(when (kind) { "transfer" -> "Кому (демо)"; "withdraw" -> "Куда вывести (демо)"; "card_payment" -> "Магазин / назначение"; else -> "Источник (демо)" }) }, singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(9) }, label = { Text("Сумма в ₽") }, singleLine = true,
@@ -345,7 +373,7 @@ private fun MoneyDialog(kind: String, balance: Long, onClose: () -> Unit, onConf
                 Text("Демо-режим: реальные деньги не перемещаются.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
             }
         },
-        confirmButton = { TextButton(enabled = canSubmit, onClick = { onConfirm(parsedAmount, who.trim()) }) { Text(when (kind) { "transfer" -> "Отправить"; "withdraw" -> "Вывести"; else -> "Добавить" }, color = Purple) } },
+        confirmButton = { TextButton(enabled = canSubmit, onClick = { onConfirm(parsedAmount, who.trim()) }) { Text(when (kind) { "transfer" -> "Отправить"; "withdraw" -> "Вывести"; "card_payment" -> "Оплатить"; else -> "Добавить" }, color = Purple) } },
         dismissButton = { TextButton(onClick = onClose) { Text("Отмена", color = Muted) } }
     )
 }
@@ -364,7 +392,7 @@ private fun loadTransactions(prefs: android.content.SharedPreferences): List<Tx>
         val array = JSONArray(stored)
         (0 until array.length()).map { i ->
             val item = array.getJSONObject(i)
-            Tx(item.getString("title"), item.getString("date"), item.getLong("amount"), item.getBoolean("incoming"))
+            Tx(item.getString("title"), item.getString("date"), item.getLong("amount"), item.getBoolean("incoming"), item.optString("recipient", ""), item.optString("status", "Успешно"), item.optLong("timestamp", 0L))
         }
     } catch (_: Exception) { emptyList() }
 }
