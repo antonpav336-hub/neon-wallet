@@ -216,7 +216,7 @@ internal fun MoneyDialog(
                                     border = BorderStroke(1.dp, Purple.copy(alpha = .55f)),
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = White)
                                 ) {
-                                    Icon(Icons.Default.Contacts, null, tint = Purple)
+                                    Icon(Icons.Default.Person, null, tint = Purple)
                                     Spacer(Modifier.width(8.dp))
                                     Text("Выбрать из контактов")
                                 }
