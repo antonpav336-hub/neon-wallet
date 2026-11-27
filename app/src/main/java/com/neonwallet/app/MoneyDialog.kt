@@ -143,7 +143,7 @@ internal fun MoneyDialog(
                         }
                         OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(9); failure = null }, label = { Text("Сумма в ₽") }, singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
-                        val liveError = if (amount.isNotBlank()) operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit) else null
+                        val liveError = if (amount.isNotBlank()) operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit, bank = selectedBank) else null
                         if (liveError != null) Text(liveError, color = Color(0xFFFF929B), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
                         else if (failure != null) Text(failure!!, color = Color(0xFFFF858D), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
                         Text("Демо-режим: реальные деньги не перемещаются.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
@@ -154,7 +154,7 @@ internal fun MoneyDialog(
         confirmButton = {
             when (stage) {
                 "editing" -> TextButton(onClick = {
-                    val reason = operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit)
+                    val reason = operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit, bank = selectedBank)
                     if (reason != null) { failure = reason; stage = "error" }
                     else {
                         if (!onBegin()) { failure = "Операция уже обрабатывается."; return@TextButton }
@@ -167,7 +167,7 @@ internal fun MoneyDialog(
                                 receiptTime = java.text.SimpleDateFormat("dd MMM · HH:mm", Locale("ru")).format(java.util.Date())
                                 stage = "success"
                             } else {
-                                failure = operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit) ?: "Операция уже обрабатывается или была отклонена."
+                                failure = operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit, bank = selectedBank) ?: "Операция уже обрабатывается или была отклонена."
                                 stage = "error"
                             }
                         }
