@@ -49,6 +49,7 @@ internal fun MoneyDialog(
     cardLimit: Long,
     onClose: () -> Unit,
     onBegin: () -> Boolean,
+    onFinish: () -> Unit,
     onConfirm: (Long, String, String) -> Boolean
 ) {
     var amount by remember { mutableStateOf("") }
@@ -160,15 +161,22 @@ internal fun MoneyDialog(
                         if (!onBegin()) { failure = "Операция уже обрабатывается."; return@TextButton }
                         stage = "processing"
                         scope.launch {
-                            delay(820)
-                            val accepted = onConfirm(parsedAmount, who.trim(), selectedBank)
-                            if (accepted) {
+                            try {
+                                delay(820)
+                                val accepted = onConfirm(parsedAmount, who.trim(), selectedBank)
+                                if (accepted) {
                                 receiptId = "NW" + System.currentTimeMillis().toString()
                                 receiptTime = java.text.SimpleDateFormat("dd MMM · HH:mm", Locale("ru")).format(java.util.Date())
                                 stage = "success"
                             } else {
                                 failure = operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit, bank = selectedBank) ?: "Операция уже обрабатывается или была отклонена."
                                 stage = "error"
+                                }
+                            } catch (_: Exception) {
+                                failure = "Не удалось завершить демо-операцию. Попробуй ещё раз."
+                                stage = "error"
+                            } finally {
+                                onFinish()
                             }
                         }
                     }
