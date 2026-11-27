@@ -228,20 +228,20 @@ private fun WalletMain(onSignOut: () -> Unit) {
                             "withdraw" -> "Вывод средств не подключён: кошелёк использует только внутренние виртуальные рубли."
                             else -> "Виртуальная карта пока не подключена к серверным платежам."
                         }
-                        false
+                        null
                     } else if (!canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen, cardLimit, bank = bank)) {
-                        false
+                        null
                     } else {
                         try {
-                            withContext(Dispatchers.IO) {
+                            val result = withContext(Dispatchers.IO) {
                                 WalletApi.transfer(token, recipient.trim(), amount, "Перевод NEON · $bank")
                             }
                             refreshServerData()
                             serverMessage = null
-                            true
+                            result.optString("transaction_id").takeIf { it.isNotBlank() }
                         } catch (e: Exception) {
                             serverMessage = e.message ?: "Сервер отклонил перевод."
-                            false
+                            null
                         }
                     }
                 }
