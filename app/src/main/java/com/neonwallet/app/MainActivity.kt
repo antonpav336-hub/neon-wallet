@@ -3,7 +3,11 @@ package com.neonwallet.app
 import android.os.Bundle
 import android.content.Intent
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent\nimport androidx.activity.compose.rememberLauncherForActivityResult\nimport androidx.activity.result.contract.ActivityResultContracts\nimport android.content.pm.PackageManager\nimport androidx.core.content.ContextCompat
+import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,7 +29,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext\nimport androidx.lifecycle.Lifecycle\nimport androidx.lifecycle.LifecycleEventObserver\nimport androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.compose.ui.*
@@ -115,7 +122,10 @@ private fun WalletMain(onSignOut: () -> Unit) {
                             Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance }, { dialog = "topup" },
                                 { dialog = "transfer" }, { dialog = "withdraw" }, txs, { tab = Tab.CARDS }, { tab = Tab.HISTORY },
                                 { selectedReceipt = it })
-                            Tab.PAYMENTS -> Payments(balance, cardFrozen, cardLimit, { dialog = "transfer" }, { dialog = "topup" }, { dialog = "withdraw" }) {\n                                if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) dialog = "qr"\n                                else cameraPermission.launch(android.Manifest.permission.CAMERA)\n                            }
+                            Tab.PAYMENTS -> Payments(balance, cardFrozen, cardLimit, { dialog = "transfer" }, { dialog = "topup" }, { dialog = "withdraw" }) {
+                                if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) dialog = "qr"
+                                else cameraPermission.launch(android.Manifest.permission.CAMERA)
+                            }
                             Tab.CARDS -> Cards(cardFrozen, cardLimit, {
                                 cardFrozen = !cardFrozen
                             }, { cardLimit = it.coerceAtLeast(0L) }) { if (canUseCard(cardFrozen)) dialog = "card_payment" }
@@ -175,7 +185,6 @@ private fun WalletMain(onSignOut: () -> Unit) {
                             Text("Дата: " + tx.date, color = Muted)
                             Text("Статус: " + tx.status, color = Green)
                             Text("ID: " + tx.operationId.ifBlank { "—" }, color = Muted)
-                            Text("ДЕМО · реальные деньги не перемещаются", color = Muted, fontSize = 10.sp)
                         }
                     },
                     confirmButton = { TextButton(onClick = { selectedReceipt = null }) { Text("Готово", color = Purple) } },
