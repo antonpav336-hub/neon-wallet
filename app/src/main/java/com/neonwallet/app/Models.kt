@@ -51,9 +51,9 @@ internal data class Tx(
 )
 internal enum class Tab { HOME, PAYMENTS, CARDS, HISTORY, PROFILE }
 
-private fun money(value: Long): String = NumberFormat.getNumberInstance(Locale("ru", "RU")).format(kotlin.math.abs(value)) + " ₽"
+internal fun money(value: Long): String = NumberFormat.getNumberInstance(Locale("ru", "RU")).format(kotlin.math.abs(value)) + " ₽"
 
-private fun loadTransactions(prefs: android.content.SharedPreferences): List<Tx> {
+internal fun loadTransactions(prefs: android.content.SharedPreferences): List<Tx> {
     val stored = prefs.getString("transactions", null)
     if (stored.isNullOrBlank()) return emptyList()
     return try {
