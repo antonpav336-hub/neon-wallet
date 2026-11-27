@@ -11,6 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -130,17 +133,22 @@ internal fun Payments(
 
 @Composable
 private fun PromoTile(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
-    Column(
+    Box(
         Modifier.width(178.dp).height(150.dp).clip(RoundedCornerShape(22.dp))
-            .background(Brush.linearGradient(listOf(Purple.copy(alpha = .36f), Color(0xFF282035))))
-            .border(1.dp, Purple.copy(alpha = .22f), RoundedCornerShape(22.dp))
-            .clickable(onClick = onClick).padding(16.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+            .background(Brush.linearGradient(listOf(Color(0xFF51475F), Color(0xFF25212D))))
+            .border(1.dp, Purple.copy(alpha = .24f), RoundedCornerShape(22.dp))
+            .clickable(onClick = onClick)
     ) {
-        Icon(icon, null, tint = Color(0xFFDCCBFF), modifier = Modifier.size(30.dp))
-        Column {
-            Text(title, color = White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = Muted, fontSize = 11.sp)
+        Image(painterResource(R.drawable.bg_neon_surface), contentDescription = null,
+            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.26f))
+        Box(Modifier.align(Alignment.TopEnd).offset(x = 28.dp, y = (-34).dp).size(95.dp)
+            .background(Color(0xFFD7C5F5).copy(alpha = .10f), CircleShape))
+        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Icon(icon, null, tint = Color(0xFFE0D4F6), modifier = Modifier.size(30.dp))
+            Column {
+                Text(title, color = White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, color = Muted, fontSize = 11.sp)
+            }
         }
     }
 }
