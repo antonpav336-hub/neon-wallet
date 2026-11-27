@@ -396,6 +396,9 @@ private fun MoneyDialog(
     var failure by remember { mutableStateOf<String?>(null) }
     val parsedAmount = amount.toLongOrNull() ?: 0L
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val favoritePrefs = remember(context) { context.getSharedPreferences("neon_transfer_favorites", android.content.Context.MODE_PRIVATE) }
+    var favorites by remember { mutableStateOf(favoritePrefs.getStringSet("recipients", emptySet())?.toList()?.sorted() ?: emptyList()) }
     val title = when (kind) { "transfer" -> "Новый перевод"; "withdraw" -> "Вывод средств"; "card_payment" -> "Оплата картой"; else -> "Пополнение" }
     val action = when (kind) { "transfer" -> "Перевести"; "withdraw" -> "Вывести"; "card_payment" -> "Оплатить"; else -> "Пополнить" }
     AlertDialog(
@@ -417,7 +420,7 @@ private fun MoneyDialog(
                     "success" -> Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         OperationStatusMark(success = true)
                         Spacer(Modifier.height(14.dp))
-                        Text("Успешно отправлено", color = Green, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text(when (kind) { "topup" -> "Пополнение выполнено"; "withdraw" -> "Вывод оформлен"; "card_payment" -> "Оплата выполнена"; else -> "Перевод отправлен" }, color = Green, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                         Text(money(parsedAmount), color = White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
                         Text(if (who.isBlank()) "Демо-пополнение" else who, color = Muted, fontSize = 13.sp)
                     }
@@ -430,9 +433,20 @@ private fun MoneyDialog(
                     else -> Column {
                         OutlinedTextField(value = who, onValueChange = { who = it; failure = null }, label = { Text(when (kind) { "transfer" -> "Кому (демо)"; "withdraw" -> "Куда вывести (демо)"; "card_payment" -> "Магазин / назначение"; else -> "Источник (демо)" }) }, singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
-                        if (kind == "transfer") Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            listOf("Alex", "Мама", "Самому себе").forEach { preset ->
-                                TextButton(onClick = { who = preset; failure = null }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text(preset, color = Purple, fontSize = 11.sp) }
+                        if (kind == "transfer") {
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                (listOf("Alex", "Мама", "Самому себе") + favorites).distinct().forEach { preset ->
+                                    TextButton(onClick = { who = preset; failure = null }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text(preset, color = Purple, fontSize = 11.sp) }
+                                }
+                            }
+                            if (who.isNotBlank() && who !in favorites) {
+                                TextButton(onClick = {
+                                    favorites = (favorites + who.trim()).distinct().take(12)
+                                    favoritePrefs.edit().putStringSet("recipients", favorites.toSet()).apply()
+                                }, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                    Icon(Icons.Default.StarBorder, null, tint = Purple, modifier = Modifier.size(15.dp))
+                                    Text("Добавить получателя в избранное", color = Purple, fontSize = 11.sp)
+                                }
                             }
                         }
                         Spacer(Modifier.height(10.dp))
