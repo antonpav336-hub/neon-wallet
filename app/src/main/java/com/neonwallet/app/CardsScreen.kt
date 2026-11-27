@@ -40,7 +40,7 @@ import java.util.Locale
 
 
 @Composable
-internal fun Cards(frozen: Boolean, cardLimit: Long, onToggleFreeze: () -> Unit, onLimitChange: (Long) -> Unit, onPay: () -> Unit) {
+internal fun Cards(frozen: Boolean, cardLimit: Long, cardholderName: String, onToggleFreeze: () -> Unit, onLimitChange: (Long) -> Unit, onPay: () -> Unit) {
     var showDetails by remember { mutableStateOf(false) }
     var showLimitEditor by remember { mutableStateOf(false) }
     var limitInput by remember(cardLimit) { mutableStateOf(cardLimit.toString()) }
@@ -63,7 +63,7 @@ internal fun Cards(frozen: Boolean, cardLimit: Long, onToggleFreeze: () -> Unit,
                 Text(if (showDetails) "4242  4242  4242  2048" else "••••  ••••  ••••  2048", color = White, fontSize = 19.sp, letterSpacing = 2.sp)
                 Spacer(Modifier.height(15.dp))
                 Row {
-                    Column { Text("ВЛАДЕЛЕЦ", color = White.copy(alpha = .65f), fontSize = 9.sp); Text("NEON USER", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                    Column { Text("ВЛАДЕЛЕЦ", color = White.copy(alpha = .65f), fontSize = 9.sp); Text(shortDisplayName(cardholderName), color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                     Spacer(Modifier.weight(1f)); Text("VISA", color = White, fontSize = 22.sp, fontWeight = FontWeight.Black)
                 }
             }
