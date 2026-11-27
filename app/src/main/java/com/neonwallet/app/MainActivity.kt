@@ -75,7 +75,7 @@ fun NeonWalletApp() {
                 BottomBar(tab) { tab = it }
             }
             dialog?.let { kind ->
-                MoneyDialog(kind, onClose = { dialog = null }) { amount, recipient ->
+                MoneyDialog(kind, balance, onClose = { dialog = null }) { amount, recipient ->
                     if (amount > 0 && (kind == "topup" || amount <= balance)) {
                         val incoming = kind == "topup"
                         balance += if (incoming) amount else -amount
@@ -127,11 +127,7 @@ private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () 
                         }
                         Text(if (visible) money(balance) else "•••••• ₽", color = White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.TrendingUp, null, tint = Green, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("+8.4% за месяц", color = Green, fontSize = 12.sp)
-                        }
+                        Text("Демо-счёт · Российский рубль", color = Color(0xFFC7B9DB), fontSize = 12.sp)
                         Spacer(Modifier.height(24.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             ActionButton("Пополнить", Icons.Default.Add, topup, true, Modifier.weight(1f))
@@ -182,7 +178,12 @@ private fun TransactionRow(tx: Tx) {
             Text(tx.title, color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             Text(tx.date, color = Muted, fontSize = 11.sp)
         }
-        Text((if (tx.amount > 0) "+" else "") + money(tx.amount), color = if (tx.incoming) Green else White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        val signedAmount = when {
+            tx.amount > 0 -> "+" + money(tx.amount)
+            tx.amount < 0 -> "−" + money(tx.amount)
+            else -> money(0)
+        }
+        Text(signedAmount, color = if (tx.incoming) Green else White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -262,10 +263,12 @@ private fun BottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
 }
 
 @Composable
-private fun MoneyDialog(kind: String, onClose: () -> Unit, onConfirm: (Long, String) -> Unit) {
+private fun MoneyDialog(kind: String, balance: Long, onClose: () -> Unit, onConfirm: (Long, String) -> Unit) {
     var amount by remember { mutableStateOf("") }
     var who by remember { mutableStateOf("") }
     val transfer = kind == "transfer"
+    val parsedAmount = amount.toLongOrNull() ?: 0L
+    val canSubmit = parsedAmount > 0L && (!transfer || (parsedAmount <= balance && who.isNotBlank()))
     AlertDialog(onDismissRequest = onClose, containerColor = Panel,
         title = { Text(if (transfer) "Новый перевод" else "Пополнение", color = White, fontWeight = FontWeight.Bold) },
         text = {
@@ -275,10 +278,17 @@ private fun MoneyDialog(kind: String, onClose: () -> Unit, onConfirm: (Long, Str
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(9) }, label = { Text("Сумма в ₽") }, singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
+                if (transfer && who.isNotBlank() && parsedAmount > balance) {
+                    Text("Недостаточно средств на демо-балансе.", color = Color(0xFFFF8A8A), fontSize = 11.sp)
+                } else if (transfer && who.isBlank()) {
+                    Text("Укажи получателя перевода.", color = Muted, fontSize = 11.sp)
+                } else if (amount.isNotBlank() && parsedAmount <= 0L) {
+                    Text("Введи сумму больше нуля.", color = Color(0xFFFF8A8A), fontSize = 11.sp)
+                }
                 Text("Демо-режим: реальные деньги не перемещаются.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(amount.toLongOrNull() ?: 0L, who.ifBlank { "получатель" }) }) { Text(if (transfer) "Отправить" else "Добавить", color = Purple) } },
+        confirmButton = { TextButton(enabled = canSubmit, onClick = { onConfirm(parsedAmount, who.trim()) }) { Text(if (transfer) "Отправить" else "Добавить", color = Purple) } },
         dismissButton = { TextButton(onClick = onClose) { Text("Отмена", color = Muted) } }
     )
 }
