@@ -29,6 +29,8 @@ import androidx.compose.ui.platform.LocalContext
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.compose.ui.*
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -48,8 +50,8 @@ internal fun Cards(frozen: Boolean, cardLimit: Long, onToggleFreeze: () -> Unit,
         Text("Управляй своими картами", Modifier.padding(start = 22.dp, top = 5.dp), color = Muted, fontSize = 13.sp)
         Spacer(Modifier.height(24.dp))
         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(205.dp).clip(RoundedCornerShape(26.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF7D43D8), Color(0xFF32165C), Color(0xFF160E26))))
-            .border(1.dp, Color(0xFFB58BFF).copy(alpha = .4f), RoundedCornerShape(26.dp)).padding(22.dp)) {
+            .background(Brush.linearGradient(listOf(Color(0xFF65567D), Color(0xFF393143), Color(0xFF201D27))))
+            .border(1.dp, Color(0xFFC8B6EA).copy(alpha = .4f), RoundedCornerShape(26.dp)).padding(22.dp)) {
             Column(Modifier.fillMaxHeight()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("NEON WALLET", color = White, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
