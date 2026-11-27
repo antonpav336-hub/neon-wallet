@@ -29,6 +29,8 @@ import androidx.compose.ui.platform.LocalContext
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.compose.ui.*
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -61,10 +63,10 @@ internal fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: ()
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Text("ТВОИ ФИНАНСЫ", color = Muted, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(10.dp))
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(Brush.linearGradient(listOf(Color(0xFF38205B), Color(0xFF21172F), Color(0xFF171220)))).border(1.dp, Color(0xFF7650A5).copy(alpha = .42f), RoundedCornerShape(25.dp)).padding(21.dp)) {
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(Brush.linearGradient(listOf(Color(0xFF40384D), Color(0xFF28232F), Color(0xFF19171F)))).border(1.dp, Color(0xFF9B86C5).copy(alpha = .42f), RoundedCornerShape(25.dp)).padding(21.dp)) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Основной счёт", color = Color(0xFFC7B9DB), fontSize = 12.sp)
+                            Text("Основной счёт", color = Color(0xFFC9C0D4), fontSize = 12.sp)
                             Spacer(Modifier.weight(1f))
                             IconButton(onClick = toggle, modifier = Modifier.size(28.dp)) { Icon(if (visible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = White, modifier = Modifier.size(17.dp)) }
                         }
