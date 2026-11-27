@@ -25,6 +25,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -62,7 +64,7 @@ class MainActivity : ComponentActivity() {
 fun NeonWalletApp() {
     val context = LocalContext.current
     val authPrefs = remember(context) { context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE) }
-    var signedIn by remember { mutableStateOf(authPrefs.getBoolean("signed_in", false)) }
+    var signedIn by remember { mutableStateOf(!authPrefs.getString("access_token", null).isNullOrBlank()) }
     var pinUnlocked by remember { mutableStateOf(WalletSession.unlocked) }
     if (!signedIn) {
         AuthScreen(authPrefs) {
@@ -78,7 +80,7 @@ fun NeonWalletApp() {
         }
     } else {
         WalletMain {
-            authPrefs.edit().putBoolean("signed_in", false).apply()
+            authPrefs.edit().putBoolean("signed_in", false).remove("access_token").apply()
             signedIn = false
             WalletSession.unlocked = false
             pinUnlocked = false
@@ -91,34 +93,60 @@ private fun WalletMain(onSignOut: () -> Unit) {
     val context = LocalContext.current
     val authPrefs = remember(context) { context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE) }
     val accountEmail = authPrefs.getString("current_email", "") ?: ""
+    val token = authPrefs.getString("access_token", null).orEmpty()
+    val accountId = authPrefs.getString("account_id", "").orEmpty()
     val accountFullName = authPrefs.getString("name_$accountEmail", accountEmail.substringBefore("@")) ?: accountEmail.substringBefore("@")
     val accountKey = remember(accountEmail) { android.util.Base64.encodeToString(accountEmail.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING) }
     val prefs = remember(context, accountKey) { context.getSharedPreferences("neon_wallet_demo_$accountKey", android.content.Context.MODE_PRIVATE) }
     var tab by remember { mutableStateOf(Tab.HOME) }
-    var balance by remember(accountKey) { mutableLongStateOf(prefs.getLong("balance", 128450L)) }
+    var balance by remember(accountKey) { mutableLongStateOf(0L) }
     var showBalance by remember(accountKey) { mutableStateOf(prefs.getBoolean("show_balance", true)) }
     var dialog by remember { mutableStateOf<String?>(null) }
     var qrRecipient by remember { mutableStateOf("") }
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         dialog = if (granted) "qr" else "camera_permission"
     }
-    var txs by remember(accountKey) { mutableStateOf(loadTransactions(prefs)) }
+    var txs by remember(accountKey) { mutableStateOf(emptyList<Tx>()) }
+    var serverMessage by remember { mutableStateOf<String?>(null) }
     var cardFrozen by remember(accountKey) { mutableStateOf(prefs.getBoolean("card_frozen", false)) }
     var cardLimit by remember(accountKey) { mutableLongStateOf(prefs.getLong("card_limit", 50000L)) }
     var isSubmitting by remember { mutableStateOf(false) }
     var selectedReceipt by remember { mutableStateOf<Tx?>(null) }
-    SideEffect {
-        val array = JSONArray()
-        txs.forEach { tx ->
-            array.put(JSONObject().apply {
-                put("title", tx.title); put("date", tx.date); put("amount", tx.amount)
-                put("incoming", tx.incoming); put("recipient", tx.recipient); put("status", tx.status)
-                put("timestamp", tx.timestamp); put("kind", tx.kind); put("bank", tx.bank); put("operationId", tx.operationId)
-            })
+    suspend fun refreshServerData() {
+        val data = withContext(Dispatchers.IO) {
+            Pair(WalletApi.wallet(token), WalletApi.transactions(token))
         }
-        prefs.edit().putLong("balance", balance).putString("transactions", array.toString())
-            .putBoolean("show_balance", showBalance).putBoolean("card_frozen", cardFrozen)
-            .putLong("card_limit", cardLimit).commit()
+        balance = data.first.optLong("balance_kopecks", 0L) / 100L
+        val items = data.second.optJSONArray("items") ?: JSONArray()
+        txs = (0 until items.length()).map { index ->
+            val item = items.getJSONObject(index)
+            val incoming = item.optString("recipient_account_id") == accountId ||
+                item.optString("kind") == "signup_bonus"
+            val rawAmount = item.optLong("amount_kopecks", 0L) / 100L
+            val instant = try { java.time.Instant.parse(item.optString("created_at")) } catch (_: Exception) { java.time.Instant.now() }
+            val timestamp = instant.toEpochMilli()
+            val date = java.text.SimpleDateFormat("dd MMM · HH:mm", Locale("ru")).format(java.util.Date(timestamp))
+            val otherParty = if (incoming) item.optString("sender_account_id") else item.optString("recipient_account_id")
+            Tx(
+                item.optString("description", "Операция NEON"), date,
+                if (incoming) rawAmount else -rawAmount, incoming,
+                otherParty, "Успешно", timestamp,
+                item.optString("kind", "transfer"), "NEON",
+                item.optString("id").take(12)
+            )
+        }
+    }
+    LaunchedEffect(token) {
+        try {
+            refreshServerData()
+            serverMessage = null
+        } catch (e: Exception) {
+            serverMessage = e.message ?: "Не удалось загрузить данные с сервера."
+        }
+    }
+    SideEffect {
+        prefs.edit().putBoolean("show_balance", showBalance)
+            .putBoolean("card_frozen", cardFrozen).putLong("card_limit", cardLimit).apply()
     }
     MaterialTheme(colorScheme = darkColorScheme(background = Bg, surface = Panel, primary = Purple, onSurface = White)) {
         Box(Modifier.fillMaxSize().background(Bg)) {
@@ -170,26 +198,39 @@ private fun WalletMain(onSignOut: () -> Unit) {
                     else -> MoneyDialog(kind, balance, cardFrozen, cardLimit, onClose = { if (!isSubmitting) { dialog = null; qrRecipient = "" } },
                     onBegin = { if (canStartOperation(isSubmitting)) { isSubmitting = true; true } else false },
                     onFinish = { isSubmitting = false }, initialRecipient = qrRecipient) { amount, recipient, bank ->
-                    val accepted = canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen, cardLimit, bank = bank)
-                    if (accepted) {
-                        val incoming = kind == "topup"
-                        val title = when (kind) {
-                            "topup" -> "Пополнение"
-                            "withdraw" -> "Вывод"
-                            "card_payment" -> "Оплата картой · $recipient"
-                            else -> "Перевод · $recipient"
+                    if (kind != "transfer") {
+                        serverMessage = when (kind) {
+                            "topup" -> "Пополнение появится после подключения безопасного серверного механизма зачисления виртуальных средств."
+                            "withdraw" -> "Вывод средств не подключён: кошелёк использует только внутренние виртуальные рубли."
+                            else -> "Виртуальная карта пока не подключена к серверным платежам."
                         }
-                        balance = if (incoming) balance + amount else balance - amount
-                        prefs.edit().putLong("balance", balance).commit()
-                        val now = System.currentTimeMillis()
-                        val date = java.text.SimpleDateFormat("dd MMM · HH:mm", Locale("ru")).format(java.util.Date(now))
-                        val operationId = "NW$now"
-                        txs = (listOf(Tx(title, date, if (incoming) amount else -amount, incoming, recipient.trim(),
-                            "Успешно", now, kind, bank, operationId)) + txs).take(100)
+                        false
+                    } else if (!canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen, cardLimit, bank = bank)) {
+                        false
+                    } else {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                WalletApi.transfer(token, recipient.trim(), amount, "Перевод NEON · $bank")
+                            }
+                            refreshServerData()
+                            serverMessage = null
+                            true
+                        } catch (e: Exception) {
+                            serverMessage = e.message ?: "Сервер отклонил перевод."
+                            false
+                        }
                     }
-                    accepted
                 }
                 }
+            }
+            serverMessage?.let { message ->
+                AlertDialog(
+                    onDismissRequest = { serverMessage = null },
+                    containerColor = Panel,
+                    title = { Text("NEON WALLET", color = White, fontWeight = FontWeight.Bold) },
+                    text = { Text(message, color = Muted) },
+                    confirmButton = { TextButton(onClick = { serverMessage = null }) { Text("Понятно", color = Purple) } }
+                )
             }
             selectedReceipt?.let { tx ->
                 AlertDialog(onDismissRequest = { selectedReceipt = null }, containerColor = Panel,
