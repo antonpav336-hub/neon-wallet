@@ -38,11 +38,11 @@ import java.util.Locale
 
 
 internal val Bg = Color(0xFF090711)
-private val Panel = Color(0xFF171323)
-private val Purple = Color(0xFF9B5CFF)
-private val Muted = Color(0xFF9B94AA)
-private val White = Color(0xFFF7F3FF)
-private val Green = Color(0xFF48D7A0)
+internal val Panel = Color(0xFF171323)
+internal val Purple = Color(0xFF9B5CFF)
+internal val Muted = Color(0xFF9B94AA)
+internal val White = Color(0xFFF7F3FF)
+internal val Green = Color(0xFF48D7A0)
 
 
 internal val NeonThemeColors = darkColorScheme(background = Bg, surface = Panel, primary = Purple, onSurface = White)
