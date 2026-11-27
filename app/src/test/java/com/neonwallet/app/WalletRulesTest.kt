@@ -66,6 +66,12 @@ class WalletRulesTest {
         assertTrue(validRecipient("NEON-ID-2048"))
     }
 
+    @Test fun transferRequiresSupportedDestinationBank() {
+        assertTrue(canSubmitMoneyOperation("transfer", 500L, 1000L, "Alex", bank = "ВТБ"))
+        assertFalse(canSubmitMoneyOperation("transfer", 500L, 1000L, "Alex", bank = "Unknown Bank"))
+        assertEquals("Выбери банк назначения.", operationFailureReason("transfer", 500L, 1000L, "Alex", bank = "Unknown Bank"))
+    }
+
     @Test fun transferLimitIsEnforced() {
         assertTrue(canSubmitMoneyOperation("transfer", 100000L, 150000L, "Alex"))
         assertFalse(canSubmitMoneyOperation("transfer", 100001L, 150000L, "Alex"))
