@@ -34,6 +34,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
@@ -76,6 +80,7 @@ internal fun MoneyDialog(
     initialRecipient: String = "",
     onConfirm: (Long, String, String) -> Boolean
 ) {
+    val context = LocalContext.current
     var amount by remember { mutableStateOf("") }
     var recipient by remember(initialRecipient) { mutableStateOf(initialRecipient) }
     var bank by remember { mutableStateOf(if (kind == "transfer" && initialRecipient.isBlank()) "" else "NEON") }
@@ -85,12 +90,10 @@ internal fun MoneyDialog(
     var contactQuery by remember { mutableStateOf("") }
     var contactsPermissionGranted by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) }
     var message by remember { mutableStateOf("") }
-    val context = LocalContext.current
     var contactList by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
-    var showContacts by remember { mutableStateOf(false) }
     val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         contactsPermissionGranted = granted
-        if (granted) { contactList = readPhoneContacts(context); showContacts = false }
+        if (granted) contactList = readPhoneContacts(context)
     }
     var stage by remember { mutableStateOf("editing") }
     var failure by remember { mutableStateOf<String?>(null) }
