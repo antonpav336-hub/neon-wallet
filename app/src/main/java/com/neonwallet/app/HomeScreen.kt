@@ -64,7 +64,7 @@ internal fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: ()
                 Text("ТВОИ ФИНАНСЫ", color = Muted, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(10.dp))
                 Box(Modifier.fillMaxWidth().heightIn(min = 205.dp).clip(RoundedCornerShape(25.dp)).background(Brush.linearGradient(listOf(Color(0xFF40384D), Color(0xFF28232F), Color(0xFF19171F)))).border(1.dp, Color(0xFF9B86C5).copy(alpha = .42f), RoundedCornerShape(25.dp))) {
-                    Image(painterResource(R.drawable.bg_neon_surface), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.22f))
+                    Image(painterResource(R.drawable.bg_neon_surface), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().alpha(0.22f))
                     Box(Modifier.align(Alignment.TopEnd).offset(x = 75.dp, y = (-95).dp).size(210.dp).background(Purple.copy(alpha = .12f), CircleShape).blur(42.dp))
                     Column(Modifier.padding(21.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
