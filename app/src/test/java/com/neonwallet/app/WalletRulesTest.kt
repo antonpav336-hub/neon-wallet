@@ -59,6 +59,16 @@ class WalletRulesTest {
     }
 
     @Test fun requiredRecipientIsExplained() {
-        assertEquals("Заполни получателя или назначение.", operationFailureReason("withdraw", 1L, 100L, " "))
+        assertEquals("Укажи корректного получателя или назначение.", operationFailureReason("withdraw", 1L, 100L, " "))
+        assertFalse(validRecipient(" "))
+        assertFalse(validRecipient("A".repeat(81)))
+        assertTrue(validRecipient("+79991234567"))
+        assertTrue(validRecipient("NEON-ID-2048"))
+    }
+
+    @Test fun transferLimitIsEnforced() {
+        assertTrue(canSubmitMoneyOperation("transfer", 100000L, 150000L, "Alex"))
+        assertFalse(canSubmitMoneyOperation("transfer", 100001L, 150000L, "Alex"))
+        assertEquals("Сумма превышает лимит перевода.", operationFailureReason("transfer", 100001L, 150000L, "Alex"))
     }
 }
