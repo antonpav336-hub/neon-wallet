@@ -268,7 +268,7 @@ private fun MoneyDialog(kind: String, balance: Long, onClose: () -> Unit, onConf
     var who by remember { mutableStateOf("") }
     val transfer = kind == "transfer"
     val parsedAmount = amount.toLongOrNull() ?: 0L
-    val canSubmit = parsedAmount > 0L && (!transfer || (parsedAmount <= balance && who.isNotBlank()))
+    val canSubmit = canSubmitMoneyOperation(kind, parsedAmount, balance, who)
     AlertDialog(onDismissRequest = onClose, containerColor = Panel,
         title = { Text(if (transfer) "Новый перевод" else "Пополнение", color = White, fontWeight = FontWeight.Bold) },
         text = {
