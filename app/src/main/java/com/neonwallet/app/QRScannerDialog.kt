@@ -104,7 +104,7 @@ internal fun QRScannerDialog(onClose: () -> Unit, onScanned: (String) -> Unit) {
                         androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                             val stroke = 4.dp.toPx()
                             val length = 42.dp.toPx()
-                            val c = Color(0xFFB88CFF)
+                            val c = Color(0xFFC9B7EA)
                             drawLine(c, androidx.compose.ui.geometry.Offset(0f,0f), androidx.compose.ui.geometry.Offset(length,0f), stroke)
                             drawLine(c, androidx.compose.ui.geometry.Offset(0f,0f), androidx.compose.ui.geometry.Offset(0f,length), stroke)
                             drawLine(c, androidx.compose.ui.geometry.Offset(size.width,0f), androidx.compose.ui.geometry.Offset(size.width-length,0f), stroke)
