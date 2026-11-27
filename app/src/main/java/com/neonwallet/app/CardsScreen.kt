@@ -52,7 +52,7 @@ internal fun Cards(frozen: Boolean, cardLimit: Long, onToggleFreeze: () -> Unit,
         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(215.dp).clip(RoundedCornerShape(26.dp))
             .background(Brush.linearGradient(listOf(Color(0xFF65567D), Color(0xFF393143), Color(0xFF201D27))))
             .border(1.dp, Color(0xFFC8B6EA).copy(alpha = .4f), RoundedCornerShape(26.dp))) {
-            Image(painterResource(R.drawable.bg_neon_surface), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.32f))
+            Image(painterResource(R.drawable.bg_neon_card), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.32f))
             Box(Modifier.align(Alignment.TopEnd).offset(x = 48.dp, y = (-60).dp).size(180.dp).background(Color(0xFFD8C8F5).copy(alpha = .10f), CircleShape).blur(24.dp))
             Column(Modifier.fillMaxHeight().padding(22.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -108,8 +108,12 @@ internal fun Cards(frozen: Boolean, cardLimit: Long, onToggleFreeze: () -> Unit,
 
 @Composable
 internal fun SummaryTile(label: String, amount: Long, tint: Color, modifier: Modifier = Modifier) {
-    Column(modifier.clip(RoundedCornerShape(16.dp)).background(Panel).padding(14.dp)) {
-        Text(label, color = Muted, fontSize = 11.sp)
-        Text(money(amount), color = tint, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+    Box(modifier.clip(RoundedCornerShape(16.dp)).background(Panel)) {
+        Image(painterResource(R.drawable.bg_neon_history), contentDescription = null,
+            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.18f))
+        Column(Modifier.padding(14.dp)) {
+            Text(label, color = Muted, fontSize = 11.sp)
+            Text(money(amount), color = tint, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }
