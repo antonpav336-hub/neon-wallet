@@ -64,7 +64,7 @@ internal fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: ()
                 Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(Brush.linearGradient(listOf(Color(0xFF38205B), Color(0xFF21172F), Color(0xFF171220)))).border(1.dp, Color(0xFF7650A5).copy(alpha = .42f), RoundedCornerShape(25.dp)).padding(21.dp)) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Основной демо-счёт", color = Color(0xFFC7B9DB), fontSize = 12.sp)
+                            Text("Основной счёт", color = Color(0xFFC7B9DB), fontSize = 12.sp)
                             Spacer(Modifier.weight(1f))
                             IconButton(onClick = toggle, modifier = Modifier.size(28.dp)) { Icon(if (visible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = White, modifier = Modifier.size(17.dp)) }
                         }
@@ -98,7 +98,7 @@ internal fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: ()
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(17.dp)).background(Panel).clickable(onClick = openCards).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Purple.copy(alpha = .14f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.CreditCard, null, tint = Purple) }
                 Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) { Text("NEON виртуальная", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Text("•••• 2048 · демо-карта", color = Muted, fontSize = 11.sp) }
+                Column(Modifier.weight(1f)) { Text("NEON виртуальная", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Text("•••• 2048", color = Muted, fontSize = 11.sp) }
                 Icon(Icons.Default.ChevronRight, null, tint = Muted)
             }
         }
