@@ -3,7 +3,7 @@ package com.neonwallet.app
 import android.os.Bundle
 import android.content.Intent
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
+import androidx.activity.compose.setContent\nimport androidx.activity.compose.rememberLauncherForActivityResult\nimport androidx.activity.result.contract.ActivityResultContracts\nimport android.content.pm.PackageManager\nimport androidx.core.content.ContextCompat
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -85,7 +85,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
     var tab by remember { mutableStateOf(Tab.HOME) }
     var balance by remember(accountKey) { mutableLongStateOf(prefs.getLong("balance", 128450L)) }
     var showBalance by remember(accountKey) { mutableStateOf(prefs.getBoolean("show_balance", true)) }
-    var dialog by remember { mutableStateOf<String?>(null) }
+    var dialog by remember { mutableStateOf<String?>(null) }\n    var qrRecipient by remember { mutableStateOf("") }\n    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->\n        dialog = if (granted) "qr" else "camera_permission"\n    }
     var txs by remember(accountKey) { mutableStateOf(loadTransactions(prefs)) }
     var cardFrozen by remember(accountKey) { mutableStateOf(prefs.getBoolean("card_frozen", false)) }
     var cardLimit by remember(accountKey) { mutableLongStateOf(prefs.getLong("card_limit", 50000L)) }
@@ -115,7 +115,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                             Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance }, { dialog = "topup" },
                                 { dialog = "transfer" }, { dialog = "withdraw" }, txs, { tab = Tab.CARDS }, { tab = Tab.HISTORY },
                                 { selectedReceipt = it })
-                            Tab.PAYMENTS -> Payments(balance, cardFrozen, cardLimit, { dialog = "transfer" }, { dialog = "topup" }, { dialog = "withdraw" })
+                            Tab.PAYMENTS -> Payments(balance, cardFrozen, cardLimit, { dialog = "transfer" }, { dialog = "topup" }, { dialog = "withdraw" }) {\n                                if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) dialog = "qr"\n                                else cameraPermission.launch(android.Manifest.permission.CAMERA)\n                            }
                             Tab.CARDS -> Cards(cardFrozen, cardLimit, {
                                 cardFrozen = !cardFrozen
                             }, { cardLimit = it.coerceAtLeast(0L) }) { if (canUseCard(cardFrozen)) dialog = "card_payment" }
@@ -127,9 +127,22 @@ private fun WalletMain(onSignOut: () -> Unit) {
                 BottomBar(tab) { tab = it }
             }
             dialog?.let { kind ->
-                MoneyDialog(kind, balance, cardFrozen, cardLimit, onClose = { if (!isSubmitting) dialog = null },
+                when (kind) {
+                    "qr" -> QRScannerDialog(
+                        onClose = { dialog = null },
+                        onScanned = { value -> qrRecipient = value; dialog = "transfer" }
+                    )
+                    "camera_permission" -> AlertDialog(
+                        onDismissRequest = { dialog = null },
+                        containerColor = Panel,
+                        title = { Text("Нужен доступ к камере", color = White) },
+                        text = { Text("Разреши доступ к камере Android, чтобы сканировать QR-коды.", color = Muted) },
+                        confirmButton = { TextButton(onClick = { dialog = null; cameraPermission.launch(android.Manifest.permission.CAMERA) }) { Text("Разрешить", color = Purple) } },
+                        dismissButton = { TextButton(onClick = { dialog = null }) { Text("Позже", color = Muted) } }
+                    )
+                    else -> MoneyDialog(kind, balance, cardFrozen, cardLimit, onClose = { if (!isSubmitting) dialog = null },
                     onBegin = { if (canStartOperation(isSubmitting)) { isSubmitting = true; true } else false },
-                    onFinish = { isSubmitting = false }) { amount, recipient, bank ->
+                    onFinish = { isSubmitting = false }, initialRecipient = qrRecipient) { amount, recipient, bank ->
                     val accepted = canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen, cardLimit, bank = bank)
                     if (accepted) {
                         val incoming = kind == "topup"
@@ -147,6 +160,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                             "Успешно", now, kind, bank, operationId)) + txs).take(100)
                     }
                     accepted
+                }
                 }
             }
             selectedReceipt?.let { tx ->
