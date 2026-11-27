@@ -361,7 +361,6 @@ internal fun MoneyDialog(
                 }
             }
         }
-    }
 }
 
 @Composable
@@ -456,6 +455,101 @@ private fun EmptyRecipientState(title: String, description: String, button: Stri
             modifier = Modifier.padding(top = 7.dp))
         TextButton(onClick = onClick, modifier = Modifier.padding(top = 8.dp)) {
             Text(button, color = Purple, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun BankPickerScreen(
+    selectedBank: String,
+    recipientName: String,
+    recipientPhone: String,
+    onSelect: (String) -> Unit,
+    onContinue: () -> Unit
+) {
+    val banks = listOf("Сбер", "ВТБ", "Т-Банк", "Альфа-Банк", "NEON")
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 22.dp, bottom = 20.dp)) {
+            Text("ШАГ 02 · БАНК", color = Purple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Text("Банк получателя", color = White, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Выбери банк, в который отправляем перевод", color = Muted, fontSize = 14.sp,
+                modifier = Modifier.padding(top = 7.dp, bottom = 22.dp))
+            TransferRecipientSummary(name = recipientName, phone = recipientPhone, bank = "",
+                onEditRecipient = {}, onEditBank = {}, compact = true)
+            Spacer(Modifier.height(22.dp))
+            banks.forEach { item ->
+                val selected = selectedBank == item
+                val accent = when (item) {
+                    "ВТБ" -> Color(0xFF54A7FF)
+                    "Сбер" -> Green
+                    "Т-Банк" -> Color.White
+                    "Альфа-Банк" -> Color(0xFFFF646E)
+                    else -> Purple
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(19.dp))
+                        .background(if (selected) accent.copy(alpha = .12f) else Panel)
+                        .border(1.dp, if (selected) accent.copy(alpha = .8f) else White.copy(alpha = .06f), RoundedCornerShape(19.dp))
+                        .clickable { onSelect(item) }.padding(15.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BankMark(item, accent)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(item, color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(if (item == "NEON") "Внутренний перевод NEON" else "Перевод на карту или по номеру",
+                            color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 3.dp))
+                    }
+                    if (selected) Icon(Icons.Default.CheckCircle, null, tint = accent)
+                    else Icon(Icons.Default.ChevronRight, null, tint = Muted)
+                }
+            }
+        }
+        Button(onClick = onContinue, enabled = selectedBank.isNotBlank(),
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 14.dp).height(58.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Purple, disabledContainerColor = Panel)) {
+            Text("Продолжить  →", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun TransferRecipientSummary(
+    name: String,
+    phone: String,
+    bank: String,
+    onEditRecipient: () -> Unit,
+    onEditBank: () -> Unit,
+    compact: Boolean = false
+) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Panel)
+        .border(1.dp, Purple.copy(alpha = .18f), RoundedCornerShape(20.dp)).padding(15.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(if (compact) 42.dp else 48.dp).clip(CircleShape)
+                .background(Brush.linearGradient(listOf(Purple, Color(0xFF655478)))),
+                contentAlignment = Alignment.Center) {
+                Text(name.firstOrNull()?.uppercase() ?: "?", color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(name, color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                if (phone.isNotBlank()) Text(phone, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
+            }
+            if (!compact) TextButton(onClick = onEditRecipient) { Text("Изменить", color = Purple, fontSize = 11.sp) }
+        }
+        if (bank.isNotBlank()) {
+            HorizontalDivider(color = White.copy(alpha = .07f), modifier = Modifier.padding(vertical = 12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BankMark(bank, Purple)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Банк получателя", color = Muted, fontSize = 10.sp)
+                    Text(bank, color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+                if (!compact) TextButton(onClick = onEditBank) { Text("Изменить", color = Purple, fontSize = 11.sp) }
+            }
         }
     }
 }
