@@ -201,6 +201,7 @@ internal fun MoneyDialog(
                                 contactName = name
                                 contactPhone = phone
                                 recipient = name
+                                bank = ""
                                 failure = null
                                 flowStep = "bank"
                             }
@@ -243,17 +244,6 @@ internal fun MoneyDialog(
                                     ) {
                                         listOf("🤝 Спасибо", "☕ За кофе", "🎁 На подарок").forEach { preset ->
                                             RecipientChip(preset, message == preset) { message = preset }
-                                        }
-                                    }
-                                }
-                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text("Банк назначения", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                    Row(
-                                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        listOf("NEON", "ВТБ", "Сбер", "Т-Банк", "Альфа-Банк").forEach { item ->
-                                            BankChip(item, bank == item) { bank = item; failure = null }
                                         }
                                     }
                                 }
@@ -373,9 +363,10 @@ private fun RecipientPickerScreen(
     onSelect: (String, String) -> Unit
 ) {
     val filtered = remember(contacts, query) {
+        val digitsQuery = query.filter(Char::isDigit)
         if (query.isBlank()) contacts else contacts.filter {
             it.first.contains(query.trim(), ignoreCase = true) ||
-                it.second.filter(Char::isDigit).contains(query.filter(Char::isDigit))
+                (digitsQuery.isNotEmpty() && it.second.filter(Char::isDigit).contains(digitsQuery))
         }
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
