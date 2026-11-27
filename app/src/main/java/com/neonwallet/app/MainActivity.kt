@@ -92,7 +92,11 @@ private fun WalletMain(onSignOut: () -> Unit) {
     var tab by remember { mutableStateOf(Tab.HOME) }
     var balance by remember(accountKey) { mutableLongStateOf(prefs.getLong("balance", 128450L)) }
     var showBalance by remember(accountKey) { mutableStateOf(prefs.getBoolean("show_balance", true)) }
-    var dialog by remember { mutableStateOf<String?>(null) }\n    var qrRecipient by remember { mutableStateOf("") }\n    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->\n        dialog = if (granted) "qr" else "camera_permission"\n    }
+    var dialog by remember { mutableStateOf<String?>(null) }
+    var qrRecipient by remember { mutableStateOf("") }
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        dialog = if (granted) "qr" else "camera_permission"
+    }
     var txs by remember(accountKey) { mutableStateOf(loadTransactions(prefs)) }
     var cardFrozen by remember(accountKey) { mutableStateOf(prefs.getBoolean("card_frozen", false)) }
     var cardLimit by remember(accountKey) { mutableLongStateOf(prefs.getLong("card_limit", 50000L)) }
