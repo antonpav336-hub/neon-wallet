@@ -191,7 +191,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                                 }
                             }) { if (canUseCard(cardFrozen)) dialog = "card_payment" }
                             Tab.HISTORY -> History(txs) { selectedReceipt = it }
-                            Tab.PROFILE -> Profile(accountEmail, accountFullName, onSignOut)
+                            Tab.PROFILE -> Profile(accountEmail, accountFullName, accountId, onSignOut)
                         }
                     }
                 }
