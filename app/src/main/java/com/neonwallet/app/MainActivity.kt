@@ -77,7 +77,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
     val prefs = remember(context) { context.getSharedPreferences("neon_wallet_demo", android.content.Context.MODE_PRIVATE) }
     var tab by remember { mutableStateOf(Tab.HOME) }
     var balance by remember { mutableLongStateOf(prefs.getLong("balance", 128450L)) }
-    var showBalance by remember { mutableStateOf(true) }
+    var showBalance by remember { mutableStateOf(prefs.getBoolean("show_balance", true)) }
     var dialog by remember { mutableStateOf<String?>(null) }
     var txs by remember { mutableStateOf(loadTransactions(prefs)) }
     var cardFrozen by remember { mutableStateOf(prefs.getBoolean("card_frozen", false)) }
@@ -102,7 +102,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                         (fadeIn(tween(220)) + slideInHorizontally(tween(220)) { it / 12 }) togetherWith fadeOut(tween(150))
                     }, label = "neon_wallet_tabs") { screen ->
                         when (screen) {
-                            Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance },
+                            Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance; prefs.edit().putBoolean("show_balance", showBalance).apply() },
                                 { dialog = "topup" }, { dialog = "transfer" }, { dialog = "withdraw" }, txs)
                             Tab.PAYMENTS -> Payments(balance, cardFrozen, cardLimit, { dialog = "transfer" }, { dialog = "topup" }, { dialog = "withdraw" })
                             Tab.CARDS -> Cards(cardFrozen, cardLimit, {
@@ -380,7 +380,7 @@ private fun History(txs: List<Tx>) {
 
 @Composable
 private fun Profile(email: String, onSignOut: () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Header()
         Text("Профиль", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(24.dp))
@@ -397,6 +397,8 @@ private fun Profile(email: String, onSignOut: () -> Unit) {
                 Spacer(Modifier.width(13.dp)); Text(label, color = White, fontSize = 14.sp, modifier = Modifier.weight(1f)); Icon(Icons.Default.ChevronRight, null, tint = Muted)
             }
         }
+        Text("PIN и биометрическая защита", Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp), color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text("Пока не подключены. Текущий вход — локальный демо-аккаунт на устройстве.", Modifier.padding(horizontal = 22.dp), color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
         Spacer(Modifier.height(18.dp))
         OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF8A8A)),
