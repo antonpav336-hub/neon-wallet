@@ -21,6 +21,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -78,6 +79,7 @@ internal fun MoneyDialog(
     var recipient by remember(initialRecipient) { mutableStateOf(initialRecipient) }
     var bank by remember { mutableStateOf("NEON") }
     var message by remember { mutableStateOf("") }
+    val context = LocalContext.current
     var contactList by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     var showContacts by remember { mutableStateOf(false) }
     val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -87,7 +89,6 @@ internal fun MoneyDialog(
     var failure by remember { mutableStateOf<String?>(null) }
     var receiptId by remember { mutableStateOf("") }
     var receiptTime by remember { mutableStateOf("") }
-    val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val parsedAmount = amount.toLongOrNull() ?: 0L
