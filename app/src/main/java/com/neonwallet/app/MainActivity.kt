@@ -398,7 +398,7 @@ private fun MoneyDialog(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val favoritePrefs = remember(context) { context.getSharedPreferences("neon_transfer_favorites", android.content.Context.MODE_PRIVATE) }
-    var favorites by remember { mutableStateOf(favoritePrefs.getStringSet("recipients", emptySet())?.toList()?.sorted() ?: emptyList()) }
+    var favorites by remember { mutableStateOf(favoritePrefs.getStringSet("recipients", mutableSetOf<String>())?.toList()?.sorted() ?: emptyList<String>()) }
     val title = when (kind) { "transfer" -> "Новый перевод"; "withdraw" -> "Вывод средств"; "card_payment" -> "Оплата картой"; else -> "Пополнение" }
     val action = when (kind) { "transfer" -> "Перевести"; "withdraw" -> "Вывести"; "card_payment" -> "Оплатить"; else -> "Пополнить" }
     AlertDialog(
