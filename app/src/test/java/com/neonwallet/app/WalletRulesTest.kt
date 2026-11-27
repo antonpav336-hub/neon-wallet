@@ -38,7 +38,15 @@ class WalletRulesTest {
         assertTrue(canSubmitMoneyOperation("card_payment", 10L, 100L, "Merchant", false))
         assertFalse(canUseCard(true))
         assertTrue(canUseCard(false))
-        assertEquals("Карта заморожена. Разморозь её перед оплатой.", operationFailureReason("card_payment", 10L, 100L, "Shop", true))
+        assertEquals("Карта заморожена. Разморозь её, чтобы выполнять исходящие операции.", operationFailureReason("card_payment", 10L, 100L, "Shop", true))
+    }
+
+    @Test fun frozenCardBlocksAllOutgoingOperationsButAllowsTopup() {
+        assertFalse(canSubmitMoneyOperation("transfer", 10L, 100L, "Alex", true, bank = "ВТБ"))
+        assertFalse(canSubmitMoneyOperation("withdraw", 10L, 100L, "Bank", true))
+        assertFalse(canSubmitMoneyOperation("card_payment", 10L, 100L, "Shop", true))
+        assertTrue(canSubmitMoneyOperation("topup", 10L, 100L, "", true))
+        assertEquals("Карта заморожена. Разморозь её, чтобы выполнять исходящие операции.", operationFailureReason("transfer", 10L, 100L, "Alex", true, bank = "ВТБ"))
     }
 
     @Test fun cardLimitIsEnforced() {
