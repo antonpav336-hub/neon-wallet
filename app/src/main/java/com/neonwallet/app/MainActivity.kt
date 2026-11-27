@@ -115,7 +115,8 @@ private fun WalletMain(onSignOut: () -> Unit) {
             }
             dialog?.let { kind ->
                 MoneyDialog(kind, balance, cardFrozen, cardLimit, onClose = { if (!isSubmitting) dialog = null },
-                    onBegin = { if (canStartOperation(isSubmitting)) { isSubmitting = true; true } else false }) { amount, recipient, bank ->
+                    onBegin = { if (canStartOperation(isSubmitting)) { isSubmitting = true; true } else false },
+                    onFinish = { isSubmitting = false }) { amount, recipient, bank ->
                     val accepted = canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen, cardLimit, bank = bank)
                     if (accepted) {
                         val incoming = kind == "topup"
@@ -132,7 +133,6 @@ private fun WalletMain(onSignOut: () -> Unit) {
                         txs = (listOf(Tx(title, date, if (incoming) amount else -amount, incoming, recipient.trim(),
                             "Успешно", now, kind, bank, operationId)) + txs).take(100)
                     }
-                    isSubmitting = false
                     accepted
                 }
             }
