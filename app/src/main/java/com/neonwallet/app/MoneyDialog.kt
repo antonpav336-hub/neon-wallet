@@ -147,7 +147,7 @@ internal fun MoneyDialog(
                             kind, parsedAmount, recipient, bank, receiptTime, receiptId,
                             onCopy = { clipboard.setText(AnnotatedString(receiptId)) },
                             onShare = {
-                                val receipt = "NEON WALLET · ДЕМО-ЧЕК\nОперация: $action\nСумма: $parsedAmount ₽\nПолучатель: $recipient\nБанк: $bank\nВремя: $receiptTime\nID: $receiptId\nДемо-режим: реальные деньги не перемещались."
+                                val receipt = "NEON WALLET · ДЕМО-ЧЕК\nОперация: $action\nСумма: $parsedAmount ₽\nПолучатель: $recipient\nБанк: $bank\nСообщение: ${message.ifBlank { "—" }}\nВремя: $receiptTime\nID: $receiptId\nДемо-режим: реальные деньги не перемещались."
                                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_TEXT, receipt)
