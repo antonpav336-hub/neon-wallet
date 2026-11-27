@@ -188,79 +188,40 @@ internal fun MoneyDialog(
                             }
                         )
                         "error" -> ErrorContent(failure ?: "Проверь данные операции.")
+                        "contacts" -> RecipientPickerScreen(
+                            contacts = contactList,
+                            query = contactQuery,
+                            onQueryChange = { contactQuery = it },
+                            permissionGranted = contactsPermissionGranted,
+                            onRequestPermission = { contactsPermission.launch(android.Manifest.permission.READ_CONTACTS) },
+                            onSelect = { name, phone ->
+                                contactName = name
+                                contactPhone = phone
+                                recipient = name
+                                failure = null
+                                flowStep = "bank"
+                            }
+                        )
+                        "bank" -> BankPickerScreen(
+                            selectedBank = bank,
+                            recipientName = contactName.ifBlank { recipient },
+                            recipientPhone = contactPhone,
+                            onSelect = { bank = it },
+                            onContinue = { flowStep = "editing" }
+                        )
                         else -> Column(
                             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding()
                                 .padding(horizontal = 20.dp, vertical = 18.dp),
                             verticalArrangement = Arrangement.spacedBy(18.dp)
                         ) {
                             if (transfer) {
-                                Text("Получатель", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Row(
-                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
-                                        .background(Panel)
-                                        .border(1.dp, Purple.copy(alpha = .35f), RoundedCornerShape(22.dp))
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        Modifier.size(54.dp).clip(CircleShape)
-                                            .background(Brush.linearGradient(listOf(Purple, Green))),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(recipient.firstOrNull()?.uppercase() ?: "＋", color = Color.White,
-                                            fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                    Spacer(Modifier.width(13.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text(recipient.ifBlank { "Выберите получателя" }, color = White,
-                                            fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                                        Text("Имя · телефон · NEON ID", color = Muted, fontSize = 12.sp)
-                                    }
-                                    Icon(Icons.Default.Edit, null, tint = Purple, modifier = Modifier.size(18.dp))
-                                }
-                                Row(
-                                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    (listOf("Alex", "Мама", "Самому себе") + favorites).distinct().forEach { name ->
-                                        RecipientChip(name, recipient == name) { recipient = name; failure = null }
-                                    }
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-                                            contactList = readPhoneContacts(context)
-                                            showContacts = true
-                                        } else contactsPermission.launch(android.Manifest.permission.READ_CONTACTS)
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    border = BorderStroke(1.dp, Purple.copy(alpha = .55f)),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = White)
-                                ) {
-                                    Icon(Icons.Default.Person, null, tint = Purple)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Выбрать из контактов")
-                                }
-                                OutlinedTextField(
-                                    value = recipient,
-                                    onValueChange = { recipient = it; failure = null },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    label = { Text("Имя, телефон или NEON ID") },
-                                    leadingIcon = { Icon(Icons.Default.Person, null, tint = Purple) },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = neonFieldColors()
+                                TransferRecipientSummary(
+                                    name = contactName.ifBlank { recipient.ifBlank { "Получатель" } },
+                                    phone = contactPhone,
+                                    bank = bank,
+                                    onEditRecipient = { flowStep = "contacts" },
+                                    onEditBank = { flowStep = "bank" }
                                 )
-                                if (recipient.isNotBlank() && recipient.trim() !in favorites) {
-                                    TextButton(onClick = {
-                                        favorites = (favorites + recipient.trim()).distinct().take(12)
-                                        favoritesPrefs.edit().putStringSet("recipients", favorites.toSet()).apply()
-                                    }) {
-                                        Icon(Icons.Default.StarBorder, null, tint = Purple)
-                                        Spacer(Modifier.width(6.dp))
-                                        Text("Добавить в избранное", color = Purple)
-                                    }
-                                }
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Text("Сообщение получателю", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     OutlinedTextField(
@@ -337,7 +298,7 @@ internal fun MoneyDialog(
                         }
                     }
                 }
-                if (stage == "editing") {
+                if (stage == "editing" && flowStep == "editing") {
                     Column(
                         Modifier.fillMaxWidth().navigationBarsPadding()
                             .background(Bg).padding(horizontal = 20.dp, vertical = 14.dp)
@@ -397,38 +358,6 @@ internal fun MoneyDialog(
                 }
             }
         }
-    }
-    if (showContacts) {
-        AlertDialog(
-            onDismissRequest = { showContacts = false },
-            containerColor = Panel,
-            title = { Text("Контакты", color = White, fontWeight = FontWeight.Bold) },
-            text = {
-                if (contactList.isEmpty()) Text("В телефонной книге пока нет контактов с номерами.", color = Muted)
-                else Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-                    contactList.forEach { (name, phone) ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable {
-                                recipient = phone
-                                showContacts = false
-                                failure = null
-                            }.padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(Modifier.size(38.dp).clip(CircleShape).background(Purple.copy(alpha = .22f)), contentAlignment = Alignment.Center) {
-                                Text(name.firstOrNull()?.uppercase() ?: "?", color = Purple, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(name, color = White, fontSize = 14.sp)
-                                Text(phone, color = Muted, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showContacts = false }) { Text("Закрыть", color = Purple) } }
-        )
     }
 }
 
