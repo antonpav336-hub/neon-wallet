@@ -398,7 +398,6 @@ private fun MoneyDialog(
     val scope = rememberCoroutineScope()
     val title = when (kind) { "transfer" -> "Новый перевод"; "withdraw" -> "Вывод средств"; "card_payment" -> "Оплата картой"; else -> "Пополнение" }
     val action = when (kind) { "transfer" -> "Перевести"; "withdraw" -> "Вывести"; "card_payment" -> "Оплатить"; else -> "Пополнить" }
-    val valid = canSubmitMoneyOperation(kind, parsedAmount, balance, who, cardFrozen, cardLimit)
     AlertDialog(
         onDismissRequest = { if (stage != "processing") onClose() },
         containerColor = Panel,
