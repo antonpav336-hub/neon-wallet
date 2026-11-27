@@ -45,6 +45,11 @@ internal object WalletApi {
 
     fun wallet(token: String) = request("GET", "/v1/wallet", token)
     fun transactions(token: String) = request("GET", "/v1/transactions?limit=100", token)
+    fun settings(token: String) = request("GET", "/v1/wallet/settings", token)
+    fun updateSettings(token: String, frozen: Boolean, limitRubles: Long) = request(
+        "PUT", "/v1/wallet/settings", token,
+        JSONObject().put("card_frozen", frozen).put("card_limit_kopecks", limitRubles * 100L)
+    )
 
     fun transfer(token: String, recipientAccountId: String, amountRubles: Long, description: String): JSONObject {
         require(recipientAccountId.matches(Regex("[0-9]{6,12}"))) { "Для перевода нужен 6–12-значный NEON ID получателя." }
