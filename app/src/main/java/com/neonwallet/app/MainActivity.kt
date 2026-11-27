@@ -103,7 +103,8 @@ private fun WalletMain(onSignOut: () -> Unit) {
                     }, label = "neon_wallet_tabs") { screen ->
                         when (screen) {
                             Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance; prefs.edit().putBoolean("show_balance", showBalance).apply() },
-                                { dialog = "topup" }, { dialog = "transfer" }, { dialog = "withdraw" }, txs)
+                                { dialog = "topup" }, { dialog = "transfer" }, { dialog = "withdraw" }, txs,
+                                { tab = Tab.CARDS }, { tab = Tab.HISTORY })
                             Tab.PAYMENTS -> Payments(balance, cardFrozen, cardLimit, { dialog = "transfer" }, { dialog = "topup" }, { dialog = "withdraw" })
                             Tab.CARDS -> Cards(cardFrozen, cardLimit, {
                                 cardFrozen = !cardFrozen
@@ -159,53 +160,63 @@ private fun Header() {
 }
 
 @Composable
-private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () -> Unit, transfer: () -> Unit, withdraw: () -> Unit, txs: List<Tx>) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () -> Unit, transfer: () -> Unit, withdraw: () -> Unit, txs: List<Tx>, openCards: () -> Unit, openHistory: () -> Unit) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 18.dp)) {
         item { Header() }
         item {
             Column(Modifier.padding(horizontal = 20.dp)) {
-                Text("ТВОИ ФИНАНСЫ", color = Muted, fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(12.dp))
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF3C1C68), Color(0xFF21143D), Color(0xFF151020))))
-                    .border(1.dp, Color(0xFF8050C5).copy(alpha = .45f), RoundedCornerShape(28.dp)).padding(22.dp)) {
-                    Box(Modifier.align(Alignment.TopEnd).size(130.dp).offset(x = 42.dp, y = (-45).dp).background(Purple.copy(alpha = .12f), CircleShape).blur(2.dp))
+                Text("ТВОИ ФИНАНСЫ", color = Muted, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(10.dp))
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(Brush.linearGradient(listOf(Color(0xFF38205B), Color(0xFF21172F), Color(0xFF171220)))).border(1.dp, Color(0xFF7650A5).copy(alpha = .42f), RoundedCornerShape(25.dp)).padding(21.dp)) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Общий баланс", color = Color(0xFFC7B9DB), fontSize = 13.sp)
-                            Spacer(Modifier.width(8.dp))
-                            IconButton(onClick = toggle, modifier = Modifier.size(28.dp)) {
-                                Icon(if (visible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = White, modifier = Modifier.size(17.dp))
-                            }
+                            Text("Основной демо-счёт", color = Color(0xFFC7B9DB), fontSize = 12.sp)
+                            Spacer(Modifier.weight(1f))
+                            IconButton(onClick = toggle, modifier = Modifier.size(28.dp)) { Icon(if (visible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = White, modifier = Modifier.size(17.dp)) }
                         }
                         AnimatedContent(targetState = if (visible) money(balance) else "•••••• ₽", transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) }, label = "balance_visibility") { value ->
-                            Text(value, color = White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                            Text(value, color = White, fontSize = 32.sp, fontWeight = FontWeight.Bold, style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"))
                         }
-                        Spacer(Modifier.height(8.dp))
-                        Text("Демо-счёт · Российский рубль", color = Color(0xFFC7B9DB), fontSize = 12.sp)
-                        Spacer(Modifier.height(24.dp))
+                        Text("Российский рубль · DEMO", color = Color(0xFFC7B9DB), fontSize = 11.sp)
+                        Spacer(Modifier.height(18.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ActionButton("Пополнить", Icons.Default.Add, topup, true, Modifier.weight(1f))
                             ActionButton("Перевести", Icons.Default.Send, transfer, false, Modifier.weight(1f))
-                            ActionButton("Вывести", Icons.Default.SouthWest, withdraw, false, Modifier.weight(1f))
                         }
                     }
                 }
             }
         }
         item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 22.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Быстрые действия", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-            }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuickAction("Перевод", Icons.Default.Send, Purple, transfer, Modifier.weight(1f))
+            Text("Быстрые действия", Modifier.padding(start = 22.dp, top = 22.dp, bottom = 12.dp), color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                QuickAction("Перевести", Icons.Default.Send, Purple, transfer, Modifier.weight(1f))
                 QuickAction("Пополнить", Icons.Default.AddCard, Green, topup, Modifier.weight(1f))
                 QuickAction("Вывести", Icons.Default.SouthWest, Color(0xFFFFB86B), withdraw, Modifier.weight(1f))
             }
         }
-        item { Text("Последние операции", Modifier.padding(horizontal = 22.dp, vertical = 20.dp), color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(top = 24.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Мои продукты", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text("Все", Modifier.clickable(onClick = openCards), color = Purple, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(17.dp)).background(Panel).clickable(onClick = openCards).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Purple.copy(alpha = .14f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.CreditCard, null, tint = Purple) }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) { Text("NEON виртуальная", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Text("•••• 2048 · демо-карта", color = Muted, fontSize = 11.sp) }
+                Icon(Icons.Default.ChevronRight, null, tint = Muted)
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(top = 24.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Последние операции", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text("Все", Modifier.clickable(onClick = openHistory), color = Purple, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
         items(txs.take(5)) { TransactionRow(it) }
-        item { Text("ДЕМО-БАЛАНС · НЕ РЕАЛЬНЫЕ ДЕНЬГИ", Modifier.fillMaxWidth().padding(20.dp), color = Muted, fontSize = 10.sp) }
+        item { Text("ДЕМО-БАЛАНС · РЕАЛЬНЫЕ ДЕНЬГИ НЕ ПЕРЕМЕЩАЮТСЯ", Modifier.fillMaxWidth().padding(20.dp), color = Muted, fontSize = 9.sp) }
     }
 }
 
@@ -357,24 +368,40 @@ private fun PaymentAction(title: String, subtitle: String, icon: androidx.compos
 private fun History(txs: List<Tx>) {
     var query by remember { mutableStateOf("") }
     var selectedKind by remember { mutableStateOf("all") }
-    val filtered = txs.filter { (selectedKind == "all" || it.kind == selectedKind) && (it.title.contains(query, true) || it.recipient.contains(query, true) || it.status.contains(query, true)) }
+    val filtered = txs.filter {
+        (selectedKind == "all" || (selectedKind == "outgoing" && !it.incoming) || it.kind == selectedKind) &&
+            (it.title.contains(query, true) || it.recipient.contains(query, true) || it.status.contains(query, true))
+    }
     val income = txs.filter { it.amount > 0 }.sumOf { it.amount }
     val expense = txs.filter { it.amount < 0 }.sumOf { kotlin.math.abs(it.amount) }
+    val dayFormat = java.text.SimpleDateFormat("yyyyMMdd", Locale("ru"))
+    val today = dayFormat.format(java.util.Date())
+    val yesterday = dayFormat.format(java.util.Date(System.currentTimeMillis() - 86400000L))
+    val grouped = filtered.groupBy { if (it.timestamp > 0L) dayFormat.format(java.util.Date(it.timestamp)) else "older" }
     Column(Modifier.fillMaxSize()) {
         Header()
         Text("История операций", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text("Все движения средств", Modifier.padding(start = 22.dp, top = 5.dp, bottom = 14.dp), color = Muted, fontSize = 13.sp)
+        Text("Движение средств и аналитика", Modifier.padding(start = 22.dp, top = 5.dp, bottom = 14.dp), color = Muted, fontSize = 12.sp)
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SummaryTile("Доходы", income, Green, Modifier.weight(1f))
+            SummaryTile("Поступления", income, Green, Modifier.weight(1f))
             SummaryTile("Расходы", expense, Color(0xFFFF9292), Modifier.weight(1f))
         }
         OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), singleLine = true, placeholder = { Text("Поиск по операции или получателю", color = Muted) }, leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) }, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("all" to "Все", "topup" to "Пополнения", "transfer" to "Переводы", "withdraw" to "Выводы", "card_payment" to "Оплаты").forEach { (key, label) ->
+            listOf("all" to "Все", "topup" to "Поступления", "outgoing" to "Списания", "transfer" to "Переводы", "card_payment" to "Оплаты").forEach { (key, label) ->
                 FilterChip(selected = selectedKind == key, onClick = { selectedKind = key }, label = { Text(label) }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Purple.copy(alpha = .25f), selectedLabelColor = White, labelColor = Muted))
             }
         }
-        LazyColumn { items(filtered) { TransactionRow(it) } }
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 12.dp)) {
+            grouped.forEach { (day, dayTxs) ->
+                item {
+                    val label = when (day) { today -> "Сегодня"; yesterday -> "Вчера"; "older" -> "Ранее"; else -> day }
+                    Text(label, Modifier.padding(start = 22.dp, top = 15.dp, bottom = 5.dp), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                items(dayTxs) { TransactionRow(it) }
+            }
+            if (filtered.isEmpty()) item { Text("Операций не найдено", Modifier.fillMaxWidth().padding(28.dp), color = Muted) }
+        }
     }
 }
 
