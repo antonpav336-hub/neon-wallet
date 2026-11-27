@@ -1,0 +1,782 @@
+package com.neonwallet.app
+
+import android.content.Intent
+import android.provider.ContactsContract
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+@Composable
+internal fun MoneyDialog(
+    kind: String,
+    balance: Long,
+    cardFrozen: Boolean,
+    cardLimit: Long,
+    onClose: () -> Unit,
+    onBegin: () -> Boolean,
+    onFinish: () -> Unit,
+    initialRecipient: String = "",
+    onConfirm: suspend (Long, String, String) -> Boolean
+) {
+    val context = LocalContext.current
+    var amount by remember { mutableStateOf("") }
+    var recipient by remember(initialRecipient) { mutableStateOf(initialRecipient) }
+    var bank by remember { mutableStateOf(if (kind == "transfer" && initialRecipient.isBlank()) "" else "NEON") }
+    var flowStep by remember { mutableStateOf(if (kind == "transfer" && initialRecipient.isBlank()) "contacts" else if (kind == "transfer") "bank" else "editing") }
+    var contactName by remember { mutableStateOf("") }
+    var contactPhone by remember { mutableStateOf("") }
+    var contactQuery by remember { mutableStateOf("") }
+    var contactsPermissionGranted by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) }
+    var message by remember { mutableStateOf("") }
+    var contactList by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        contactsPermissionGranted = granted
+        if (granted) contactList = readPhoneContacts(context)
+    }
+    var stage by remember { mutableStateOf("editing") }
+    var failure by remember { mutableStateOf<String?>(null) }
+    var receiptId by remember { mutableStateOf("") }
+    var receiptTime by remember { mutableStateOf("") }
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    val parsedAmount = amount.toLongOrNull() ?: 0L
+    val transfer = kind == "transfer"
+    val action = when (kind) {
+        "transfer" -> "Перевести"
+        "withdraw" -> "Вывести"
+        "card_payment" -> "Оплатить"
+        else -> "Пополнить"
+    }
+    val favoritesPrefs = remember(context) {
+        val email = context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE)
+            .getString("current_email", "") ?: ""
+        val accountKey = android.util.Base64.encodeToString(
+            email.toByteArray(),
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
+        )
+        context.getSharedPreferences("neon_transfer_favorites_$accountKey", android.content.Context.MODE_PRIVATE)
+    }
+    var favorites by remember {
+        mutableStateOf(favoritesPrefs.getStringSet("recipients", emptySet())?.toList()?.sorted() ?: emptyList<String>())
+    }
+    val liveError = if (amount.isNotBlank()) {
+        operationFailureReason(kind, parsedAmount, balance, recipient, cardFrozen, cardLimit, bank = bank)
+    } else null
+    val canSend = stage == "editing" && flowStep == "editing" && amount.isNotBlank() && liveError == null
+
+    LaunchedEffect(transfer, initialRecipient) {
+        if (transfer && initialRecipient.isBlank()) {
+            if (contactsPermissionGranted) contactList = readPhoneContacts(context)
+            else contactsPermission.launch(android.Manifest.permission.READ_CONTACTS)
+        }
+    }
+
+    fun goBackFlow() {
+        if (stage == "processing") return
+        if (stage == "success" || stage == "error") { onClose(); return }
+        if (transfer) {
+            when (flowStep) {
+                "editing" -> flowStep = "bank"
+                "bank" -> flowStep = "contacts"
+                else -> onClose()
+            }
+        } else onClose()
+    }
+
+    BackHandler(enabled = true) { goBackFlow() }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = Bg, shape = RoundedCornerShape(0.dp)) {
+            Column(Modifier.fillMaxSize().background(Bg)) {
+                Row(
+                    Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { goBackFlow() }, enabled = stage != "processing") {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = White)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        when (stage) {
+                            "processing" -> "Обработка перевода"
+                            "success" -> "Чек операции"
+                            "error" -> "Операция отклонена"
+                            else -> if (transfer) when (flowStep) { "contacts" -> "Получатель"; "bank" -> "Банк получателя"; else -> "Перевод" } else action
+                        },
+                        color = White, fontSize = 21.sp, fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Icon(Icons.Default.Bolt, null, tint = Purple, modifier = Modifier.size(28.dp))
+                }
+                HorizontalDivider(color = White.copy(alpha = .07f))
+                AnimatedContent(
+                    targetState = if (stage == "editing" && transfer) flowStep else stage,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    transitionSpec = { (fadeIn(tween(240)) + slideInHorizontally(tween(260)) { it / 14 }) togetherWith fadeOut(tween(150)) },
+                    label = "operation_stage"
+                ) { current ->
+                    when (current) {
+                        "processing" -> ProcessingContent()
+                        "success" -> ReceiptContent(
+                            kind, parsedAmount, recipient, bank, receiptTime, receiptId,
+                            onCopy = { clipboard.setText(AnnotatedString(receiptId)) },
+                            onShare = {
+                                val receipt = "NEON WALLET\nОперация: $action\nСумма: $parsedAmount ₽\nПолучатель: $recipient\nБанк: $bank\nСообщение: ${message.ifBlank { "—" }}\nВремя: $receiptTime\nID: $receiptId"
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, receipt)
+                                }
+                                context.startActivity(Intent.createChooser(sendIntent, "Поделиться чеком"))
+                            }
+                        )
+                        "error" -> ErrorContent(failure ?: "Проверь данные операции.")
+                        "contacts" -> RecipientPickerScreen(
+                            contacts = contactList,
+                            query = contactQuery,
+                            onQueryChange = { contactQuery = it },
+                            permissionGranted = contactsPermissionGranted,
+                            onRequestPermission = { contactsPermission.launch(android.Manifest.permission.READ_CONTACTS) },
+                            onSelect = { name, phone ->
+                                contactName = name
+                                contactPhone = phone
+                                recipient = name
+                                bank = ""
+                                failure = null
+                                flowStep = "bank"
+                            }
+                        )
+                        "bank" -> BankPickerScreen(
+                            selectedBank = bank,
+                            recipientName = contactName.ifBlank { recipient },
+                            recipientPhone = contactPhone,
+                            onSelect = { bank = it },
+                            onContinue = { flowStep = "editing" }
+                        )
+                        else -> Column(
+                            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding()
+                                .padding(horizontal = 20.dp, vertical = 18.dp),
+                            verticalArrangement = Arrangement.spacedBy(18.dp)
+                        ) {
+                            if (transfer) {
+                                TransferRecipientSummary(
+                                    name = contactName.ifBlank { recipient.ifBlank { "Получатель" } },
+                                    phone = contactPhone,
+                                    bank = bank,
+                                    onEditRecipient = { flowStep = "contacts" },
+                                    onEditBank = { flowStep = "bank" }
+                                )
+                                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    Text("NEON ID получателя", color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    OutlinedTextField(
+                                        value = recipient,
+                                        onValueChange = { recipient = it.filter(Char::isDigit).take(12); failure = null },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        label = { Text("9-значный ID аккаунта") },
+                                        placeholder = { Text("Например, 123456789") },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = neonFieldColors()
+                                    )
+                                    Text("Перевод выполняется внутри NEON WALLET по ID аккаунта, не по номеру телефона или карте.", color = Muted, fontSize = 11.sp)
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("Сообщение получателю", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    OutlinedTextField(
+                                        value = message,
+                                        onValueChange = { message = it.take(120) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        label = { Text("Необязательно") },
+                                        placeholder = { Text("Например, спасибо!") },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = neonFieldColors()
+                                    )
+                                    Row(
+                                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        listOf("🤝 Спасибо", "☕ За кофе", "🎁 На подарок").forEach { preset ->
+                                            RecipientChip(preset, message == preset) { message = preset }
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text("Детали операции", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                OutlinedTextField(
+                                    value = recipient, onValueChange = { recipient = it; failure = null },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Получатель / назначение") },
+                                    singleLine = true, shape = RoundedCornerShape(16.dp), colors = neonFieldColors()
+                                )
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                                Text("Сумма, ₽", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Row(
+                                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                                ) {
+                                    listOf(500L, 1000L, 3000L, 5000L).forEach { preset ->
+                                        AmountChip(preset, parsedAmount == preset) {
+                                            amount = preset.toString(); failure = null
+                                        }
+                                    }
+                                }
+                                OutlinedTextField(
+                                    value = amount,
+                                    onValueChange = { amount = it.filter(Char::isDigit).take(9); failure = null },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Введите сумму") },
+                                    leadingIcon = { Text("₽", color = Purple, fontSize = 22.sp, fontWeight = FontWeight.Bold) },
+                                    singleLine = true, shape = RoundedCornerShape(18.dp), colors = neonFieldColors()
+                                )
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Доступно", color = Muted, fontSize = 12.sp)
+                                    Text("$balance ₽", color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                Text(
+                                    liveError ?: if (amount.isBlank()) "Укажи сумму для расчёта остатка."
+                                    else "После операции останется: ${(balance - parsedAmount).coerceAtLeast(0)} ₽",
+                                    color = if (liveError != null) Color(0xFFFF858D) else Green,
+                                    fontSize = 12.sp, minLines = 1
+                                )
+                                if (failure != null) Text(failure!!, color = Color(0xFFFF858D), fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+                if (stage == "editing" && flowStep == "editing") {
+                    Column(
+                        Modifier.fillMaxWidth().navigationBarsPadding()
+                            .background(Bg).padding(horizontal = 20.dp, vertical = 14.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (!canSend) {
+                                    failure = liveError ?: "Укажи сумму и получателя."
+                                } else if (!onBegin()) {
+                                    failure = "Операция уже обрабатывается."
+                                } else {
+                                    stage = "processing"
+                                    scope.launch {
+                                        try {
+                                            delay(820)
+                                            receiptId = "NW" + System.currentTimeMillis()
+                                            receiptTime = SimpleDateFormat("dd MMM · HH:mm", Locale("ru")).format(Date())
+                                            if (onConfirm(parsedAmount, recipient.trim(), bank)) {
+                                                stage = "success"
+                                            } else {
+                                                failure = operationFailureReason(kind, parsedAmount, balance, recipient,
+                                                    cardFrozen, cardLimit, bank = bank) ?: "Операция отклонена. Проверь данные."
+                                                stage = "error"
+                                            }
+                                        } catch (_: Exception) {
+                                            failure = "Не удалось завершить операцию. Попробуй ещё раз."
+                                            stage = "error"
+                                        } finally {
+                                            onFinish()
+                                        }
+                                    }
+                                }
+                            },
+                            enabled = canSend,
+                            modifier = Modifier.fillMaxWidth().height(58.dp)
+                                .shadow(if (canSend) 16.dp else 0.dp, RoundedCornerShape(18.dp), ambientColor = Purple),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Purple, disabledContainerColor = Panel,
+                                contentColor = Color.White, disabledContentColor = Muted
+                            )
+                        ) {
+                            Text(
+                                if (parsedAmount > 0) "$action · $parsedAmount ₽  →" else "$action  →",
+                                fontSize = 17.sp, fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                } else if (stage == "success" || stage == "error") {
+                    Button(
+                        onClick = onClose,
+                        modifier = Modifier.fillMaxWidth().navigationBarsPadding()
+                            .padding(horizontal = 20.dp, vertical = 14.dp).height(56.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Purple)
+                    ) { Text("Готово", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+}
+
+@Composable
+private fun RecipientPickerScreen(
+    contacts: List<Pair<String, String>>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    permissionGranted: Boolean,
+    onRequestPermission: () -> Unit,
+    onSelect: (String, String) -> Unit
+) {
+    val filtered = remember(contacts, query) {
+        val digitsQuery = query.filter(Char::isDigit)
+        if (query.isBlank()) contacts else contacts.filter {
+            it.first.contains(query.trim(), ignoreCase = true) ||
+                (digitsQuery.isNotEmpty() && it.second.filter(Char::isDigit).contains(digitsQuery))
+        }
+    }
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 22.dp, bottom = 20.dp)) {
+            Text("ШАГ 01 · ПОЛУЧАТЕЛЬ", color = Purple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Text("Кому отправим?", color = White, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Найди человека по имени или номеру телефона", color = Muted, fontSize = 14.sp,
+                modifier = Modifier.padding(top = 7.dp, bottom = 22.dp))
+            OutlinedTextField(
+                value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Имя или номер телефона") },
+                leadingIcon = { Icon(Icons.Default.Search, null, tint = Purple) },
+                trailingIcon = { if (query.isNotBlank()) IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Default.Close, null, tint = Muted)
+                } },
+                singleLine = true, shape = RoundedCornerShape(18.dp), colors = neonFieldColors()
+            )
+            Spacer(Modifier.height(22.dp))
+            Text(if (query.isBlank()) "Контакты" else "Результаты поиска", color = White,
+                fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            if (!permissionGranted) {
+                EmptyRecipientState("Нужен доступ к контактам",
+                    "Разреши доступ, чтобы выбрать получателя из телефонной книги.",
+                    "Разрешить доступ", onRequestPermission)
+            } else if (filtered.isEmpty()) {
+                EmptyRecipientState(
+                    if (contacts.isEmpty()) "Контактов пока нет" else "Ничего не найдено",
+                    if (contacts.isEmpty()) "В телефонной книге не найдено контактов с номерами." else "Проверь имя или номер и попробуй ещё раз.",
+                    if (contacts.isEmpty()) "Обновить контакты" else "Очистить поиск",
+                    { if (contacts.isEmpty()) onRequestPermission() else onQueryChange("") }
+                )
+            } else {
+                filtered.forEachIndexed { index, item ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp))
+                            .background(if (index % 2 == 0) Panel else Color.Transparent)
+                            .clickable { onSelect(item.first, item.second) }
+                            .padding(horizontal = 13.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(46.dp).clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(Purple.copy(alpha = .45f), Color(0xFF51445F)))),
+                            contentAlignment = Alignment.Center) {
+                            Text(item.first.firstOrNull()?.uppercase() ?: "?", color = White,
+                                fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(13.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(item.first, color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(item.second, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
+                        }
+                        Icon(Icons.Default.ChevronRight, null, tint = Purple)
+                    }
+                    if (index != filtered.lastIndex) Spacer(Modifier.height(5.dp))
+                }
+            }
+        }
+        Text("Контакты используются только для выбора получателя на этом устройстве.",
+            color = Muted.copy(alpha = .7f), fontSize = 10.sp,
+            modifier = Modifier.navigationBarsPadding().padding(bottom = 14.dp, top = 6.dp))
+    }
+}
+
+@Composable
+private fun EmptyRecipientState(title: String, description: String, button: String, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Panel).padding(22.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(56.dp).clip(CircleShape).background(Purple.copy(alpha = .16f)),
+            contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Person, null, tint = Purple, modifier = Modifier.size(27.dp))
+        }
+        Spacer(Modifier.height(13.dp))
+        Text(title, color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(description, color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 7.dp))
+        TextButton(onClick = onClick, modifier = Modifier.padding(top = 8.dp)) {
+            Text(button, color = Purple, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun BankPickerScreen(
+    selectedBank: String,
+    recipientName: String,
+    recipientPhone: String,
+    onSelect: (String) -> Unit,
+    onContinue: () -> Unit
+) {
+    val banks = listOf("Сбер", "ВТБ", "Т-Банк", "Альфа-Банк", "NEON")
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 22.dp, bottom = 20.dp)) {
+            Text("ШАГ 02 · БАНК", color = Purple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Text("Банк получателя", color = White, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Выбери банк, в который отправляем перевод", color = Muted, fontSize = 14.sp,
+                modifier = Modifier.padding(top = 7.dp, bottom = 22.dp))
+            TransferRecipientSummary(name = recipientName, phone = recipientPhone, bank = "",
+                onEditRecipient = {}, onEditBank = {}, compact = true)
+            Spacer(Modifier.height(22.dp))
+            banks.forEach { item ->
+                val selected = selectedBank == item
+                val accent = when (item) {
+                    "ВТБ" -> Color(0xFF54A7FF)
+                    "Сбер" -> Green
+                    "Т-Банк" -> Color.White
+                    "Альфа-Банк" -> Color(0xFFFF646E)
+                    else -> Purple
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(19.dp))
+                        .background(if (selected) accent.copy(alpha = .12f) else Panel)
+                        .border(1.dp, if (selected) accent.copy(alpha = .8f) else White.copy(alpha = .06f), RoundedCornerShape(19.dp))
+                        .clickable { onSelect(item) }.padding(15.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BankMark(item, accent)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(item, color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(if (item == "NEON") "Внутренний перевод NEON" else "Перевод на карту или по номеру",
+                            color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 3.dp))
+                    }
+                    if (selected) Icon(Icons.Default.CheckCircle, null, tint = accent)
+                    else Icon(Icons.Default.ChevronRight, null, tint = Muted)
+                }
+            }
+        }
+        Button(onClick = onContinue, enabled = selectedBank.isNotBlank(),
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 14.dp).height(58.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Purple, disabledContainerColor = Panel)) {
+            Text("Продолжить  →", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun TransferRecipientSummary(
+    name: String,
+    phone: String,
+    bank: String,
+    onEditRecipient: () -> Unit,
+    onEditBank: () -> Unit,
+    compact: Boolean = false
+) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Panel)
+        .border(1.dp, Purple.copy(alpha = .18f), RoundedCornerShape(20.dp)).padding(15.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(if (compact) 42.dp else 48.dp).clip(CircleShape)
+                .background(Brush.linearGradient(listOf(Purple, Color(0xFF655478)))),
+                contentAlignment = Alignment.Center) {
+                Text(name.firstOrNull()?.uppercase() ?: "?", color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(name, color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                if (phone.isNotBlank()) Text(phone, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
+            }
+            if (!compact) TextButton(onClick = onEditRecipient) { Text("Изменить", color = Purple, fontSize = 11.sp) }
+        }
+        if (bank.isNotBlank()) {
+            HorizontalDivider(color = White.copy(alpha = .07f), modifier = Modifier.padding(vertical = 12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BankMark(bank, Purple)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Банк получателя", color = Muted, fontSize = 10.sp)
+                    Text(bank, color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+                if (!compact) TextButton(onClick = onEditBank) { Text("Изменить", color = Purple, fontSize = 11.sp) }
+            }
+        }
+    }
+}
+
+private fun readPhoneContacts(context: android.content.Context): List<Pair<String, String>> {
+    val result = mutableListOf<Pair<String, String>>()
+    val cursor = context.contentResolver.query(
+        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+        arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER),
+        null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE LOCALIZED ASC"
+    )
+    cursor?.use {
+        val nameIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+        val phoneIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+        while (it.moveToNext() && result.size < 250) {
+            val name = if (nameIndex >= 0) it.getString(nameIndex).orEmpty() else ""
+            val phone = if (phoneIndex >= 0) it.getString(phoneIndex).orEmpty() else ""
+            if (name.isNotBlank() && phone.isNotBlank()) result.add(name to phone)
+        }
+    }
+    return result.distinctBy { it.second }
+}
+
+@Composable
+private fun neonFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = White, unfocusedTextColor = White, cursorColor = Purple,
+    focusedBorderColor = Purple, unfocusedBorderColor = Muted.copy(alpha = .5f),
+    focusedLabelColor = Purple, unfocusedLabelColor = Muted
+)
+
+@Composable
+private fun RecipientChip(name: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected, onClick = onClick,
+        label = { Text(name, maxLines = 1) },
+        leadingIcon = {
+            Box(Modifier.size(22.dp).clip(CircleShape).background(Purple.copy(alpha = .18f)),
+                contentAlignment = Alignment.Center) {
+                Text(name.firstOrNull()?.uppercase() ?: "?", color = Purple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = Purple.copy(alpha = .25f), selectedLabelColor = White, labelColor = Muted
+        )
+    )
+}
+
+@Composable
+private fun BankChip(bank: String, selected: Boolean, onClick: () -> Unit) {
+    val accent = when (bank) {
+        "ВТБ" -> Color(0xFF54A7FF)
+        "Сбер" -> Green
+        "Т-Банк" -> Color.White
+        "Альфа-Банк" -> Color(0xFFFF646E)
+        else -> Purple
+    }
+    Surface(
+        onClick = onClick,
+        color = if (selected) accent.copy(alpha = .18f) else Panel,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, if (selected) accent else Muted.copy(alpha = .25f))
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            BankMark(bank, accent)
+            Spacer(Modifier.width(8.dp))
+            Text(bank, color = if (selected) White else Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun BankMark(bank: String, accent: Color) {
+    val logo = when (bank) {
+        "Сбер" -> R.drawable.bank_sber
+        "ВТБ" -> R.drawable.bank_vtb
+        "Т-Банк" -> R.drawable.bank_tbank
+        "Альфа-Банк" -> R.drawable.bank_alfabank
+        else -> null
+    }
+    if (logo != null) {
+        Image(
+            painter = painterResource(logo),
+            contentDescription = "Логотип $bank",
+            modifier = Modifier.size(30.dp).clip(RoundedCornerShape(8.dp))
+        )
+    } else {
+        Box(
+            Modifier.size(30.dp).clip(RoundedCornerShape(9.dp))
+                .background(Brush.linearGradient(listOf(Purple, Color(0xFF74628F)))),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Bolt, null, tint = Color.White, modifier = Modifier.size(19.dp))
+        }
+    }
+}
+
+@Composable
+private fun AmountChip(value: Long, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected, onClick = onClick,
+        label = { Text(java.text.NumberFormat.getIntegerInstance(Locale("ru")).format(value) + " ₽", maxLines = 1) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = Purple.copy(alpha = .25f), selectedLabelColor = White, labelColor = Muted
+        )
+    )
+}
+
+@Composable
+private fun ProcessingContent() {
+    val transition = rememberInfiniteTransition(label = "processing_pulse")
+    val pulse by transition.animateFloat(
+        initialValue = .88f, targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(tween(560), repeatMode = RepeatMode.Reverse),
+        label = "processing_scale"
+    )
+    Column(
+        Modifier.fillMaxSize().padding(28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(Modifier.size(138.dp).graphicsLayer { scaleX = pulse; scaleY = pulse }, contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().border(2.dp, Purple.copy(alpha = .5f), CircleShape))
+            CircularProgressIndicator(color = Purple, strokeWidth = 4.dp, modifier = Modifier.size(92.dp))
+            androidx.compose.material3.Icon(Icons.Default.Bolt, null, tint = Green, modifier = Modifier.size(38.dp))
+        }
+        Spacer(Modifier.height(28.dp))
+        Text("Подготавливаем перевод", color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text("Проверяем данные операции…", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun ReceiptContent(
+    kind: String, amount: Long, recipient: String, bank: String, time: String, id: String,
+    onCopy: () -> Unit, onShare: () -> Unit
+) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(14.dp))
+        OperationStatusMark(success = true)
+        Spacer(Modifier.height(18.dp))
+        Text(if (kind == "transfer") "Перевод отправлен" else "Операция выполнена",
+            color = Green, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        Text("$amount ₽", color = White, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(22.dp))
+        ReceiptLine("Получатель", recipient.ifBlank { "—" })
+        ReceiptLine("Банк назначения", bank)
+        ReceiptLine("Выполнено", time)
+        ReceiptLine("ID операции", id)
+        Spacer(Modifier.height(18.dp))
+        OutlinedButton(onClick = onCopy, modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, Purple), colors = ButtonDefaults.outlinedButtonColors(contentColor = White)) {
+            androidx.compose.material3.Icon(Icons.Default.ContentCopy, null)
+            Spacer(Modifier.width(8.dp)); Text("Скопировать ID")
+        }
+        OutlinedButton(onClick = onShare, modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, Purple), colors = ButtonDefaults.outlinedButtonColors(contentColor = White)) {
+            androidx.compose.material3.Icon(Icons.Default.Share, null)
+            Spacer(Modifier.width(8.dp)); Text("Поделиться чеком")
+        }
+        Text("Операция обработана в NEON WALLET", color = Muted, fontSize = 10.sp,
+            textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
+    }
+}
+
+@Composable
+private fun ReceiptLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = Muted, fontSize = 13.sp)
+        Spacer(Modifier.width(12.dp))
+        Text(value, color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End)
+    }
+    HorizontalDivider(color = White.copy(alpha = .07f))
+}
+
+@Composable
+private fun ErrorContent(reason: String) {
+    val shake by animateFloatAsState(targetValue = 1f, animationSpec = tween(420), label = "error_shake")
+    Column(
+        Modifier.fillMaxSize().padding(28.dp).graphicsLayer {
+            translationX = kotlin.math.sin(shake * Math.PI * 8).toFloat() * (1f - shake) * 10f
+        },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        OperationStatusMark(success = false)
+        Spacer(Modifier.height(20.dp))
+        Text("Не удалось выполнить", color = Color(0xFFFF858D), fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(10.dp))
+        Text(reason, color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+internal fun OperationStatusMark(success: Boolean) {
+    var started by remember { mutableStateOf(false) }
+    LaunchedEffect(success) { started = true }
+    val progress by animateFloatAsState(if (started) 1f else 0f, tween(520), label = "status_mark_progress")
+    Canvas(Modifier.size(94.dp).graphicsLayer {
+        val wobble = if (success) 0f else kotlin.math.sin(progress * Math.PI * 8).toFloat() * (1f - progress) * 9f
+        translationX = wobble
+        val bounce = if (success) kotlin.math.sin(progress * Math.PI).toFloat() * .12f else 0f
+        scaleX = (if (success) .86f + .14f * progress else 1f) + bounce
+        scaleY = (if (success) .86f + .14f * progress else 1f) + bounce
+    }) {
+        val stroke = 5.dp.toPx()
+        val tint = if (success) Green else Color(0xFFFF6675)
+        drawCircle(tint.copy(alpha = .13f), style = Stroke(stroke))
+        drawCircle(tint, style = Stroke(stroke))
+        if (success) {
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .52f),
+                androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f), stroke, cap = StrokeCap.Round)
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f),
+                androidx.compose.ui.geometry.Offset(size.width * .77f, size.height * .32f), stroke, cap = StrokeCap.Round)
+        } else {
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .34f, size.height * .34f),
+                androidx.compose.ui.geometry.Offset(size.width * .66f, size.height * .66f), stroke, cap = StrokeCap.Round)
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .66f, size.height * .34f),
+                androidx.compose.ui.geometry.Offset(size.width * .34f, size.height * .66f), stroke, cap = StrokeCap.Round)
+        }
+    }
+}
