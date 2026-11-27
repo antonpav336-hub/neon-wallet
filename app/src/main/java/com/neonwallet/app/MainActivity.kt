@@ -107,51 +107,112 @@ private fun Header() {
 
 @Composable
 private fun Home(balance: Long, visible: Boolean, toggle: () -> Unit, topup: () -> Unit, transfer: () -> Unit, txs: List<Tx>) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        item { Header() }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 22.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(Modifier.size(44.dp).clip(RoundedCornerShape(15.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFFBBA6EA), Color(0xFF68577E)))),
+                    contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.AccountBalanceWallet, null, tint = Color(0xFF17131D), modifier = Modifier.size(24.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("NEON WALLET", color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                    Text("ТВОИ ФИНАНСЫ ПОД КОНТРОЛЕМ", color = Muted, fontSize = 9.sp, letterSpacing = 1.1.sp)
+                }
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.size(42.dp).clip(CircleShape).background(Panel), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.NotificationsNone, null, tint = White)
+                }
+            }
+        }
         item {
             Column(Modifier.padding(horizontal = 20.dp)) {
-                Text("ТВОИ ФИНАНСЫ", color = Muted, fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                Text("МОЙ СЧЁТ", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
                 Spacer(Modifier.height(12.dp))
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF30263F), Color(0xFF211C2B), Color(0xFF17141D))))
-                    .border(1.dp, Color(0xFFB49AF5).copy(alpha = .22f), RoundedCornerShape(28.dp)).padding(22.dp)) {
-                    Box(Modifier.align(Alignment.TopEnd).size(130.dp).offset(x = 42.dp, y = (-45).dp).background(Purple.copy(alpha = .12f), CircleShape).blur(2.dp))
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF3A3147), Color(0xFF24202B), Color(0xFF1B1821))))
+                    .border(1.dp, Color(0xFFB49AF5).copy(alpha = .24f), RoundedCornerShape(30.dp))
+                    .padding(23.dp)) {
+                    Box(Modifier.align(Alignment.TopEnd).size(150.dp).offset(x = 55.dp, y = (-58).dp)
+                        .background(Color(0xFFB49AF5).copy(alpha = .09f), CircleShape).blur(3.dp))
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Общий баланс", color = Color(0xFFC7B9DB), fontSize = 13.sp)
+                            Text("Доступный баланс", color = Color(0xFFC9C0D2), fontSize = 13.sp)
                             Spacer(Modifier.width(8.dp))
                             IconButton(onClick = toggle, modifier = Modifier.size(28.dp)) {
-                                Icon(if (visible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = White, modifier = Modifier.size(17.dp))
+                                Icon(if (visible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null,
+                                    tint = Color(0xFFC9C0D2), modifier = Modifier.size(17.dp))
                             }
                         }
-                        Text(if (visible) money(balance) else "•••••• ₽", color = White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(8.dp))
-                        Text("Демо-счёт · Российский рубль", color = Color(0xFFC7B9DB), fontSize = 12.sp)
+                        Text(if (visible) money(balance) else "•••••• ₽", color = White,
+                            fontSize = 35.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
+                        Spacer(Modifier.height(7.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(7.dp).clip(CircleShape).background(Green))
+                            Spacer(Modifier.width(7.dp))
+                            Text("Российский рубль · RUB", color = Color(0xFFB8AFBF), fontSize = 11.sp)
+                        }
                         Spacer(Modifier.height(24.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ActionButton("Пополнить", Icons.Default.Add, topup, true, Modifier.weight(1f))
-                            ActionButton("Перевести", Icons.Default.ArrowUpward, transfer, false, Modifier.weight(1f))
+                            Button(onClick = topup, modifier = Modifier.weight(1f).height(50.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB9A5E8)),
+                                shape = RoundedCornerShape(16.dp)) {
+                                Icon(Icons.Default.Add, null, tint = Color(0xFF211A2B))
+                                Spacer(Modifier.width(7.dp))
+                                Text("Пополнить", color = Color(0xFF211A2B), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                            OutlinedButton(onClick = transfer, modifier = Modifier.weight(1f).height(50.dp),
+                                border = BorderStroke(1.dp, Color(0xFF8F829D)),
+                                shape = RoundedCornerShape(16.dp)) {
+                                Icon(Icons.Default.ArrowUpward, null, tint = White)
+                                Spacer(Modifier.width(7.dp))
+                                Text("Перевести", color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            }
                         }
                     }
                 }
             }
         }
         item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 22.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Быстрые действия", color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(top = 28.dp, bottom = 15.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Платежи и переводы", color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text("Все", color = Color(0xFFB9A5E8), fontSize = 12.sp)
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuickAction("Перевод", Icons.Default.Send, Purple, transfer, Modifier.weight(1f))
-                QuickAction("Пополнить", Icons.Default.AddCard, Green, topup, Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                QuickAction("По номеру", Icons.Default.Person, Color(0xFFB9A5E8), transfer, Modifier.weight(1f))
+                QuickAction("По QR-коду", Icons.Default.QrCodeScanner, Color(0xFF86BFA9), topup, Modifier.weight(1f))
+                QuickAction("На карту", Icons.Default.CreditCard, Color(0xFFE0B68A), transfer, Modifier.weight(1f))
             }
         }
-        item { Text("Последние операции", Modifier.padding(horizontal = 22.dp, vertical = 20.dp), color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold) }
-        items(txs.take(5)) { TransactionRow(it) }
-        item { Text("ДЕМО-БАЛАНС · НЕ РЕАЛЬНЫЕ ДЕНЬГИ", Modifier.fillMaxWidth().padding(20.dp), color = Muted, fontSize = 10.sp) }
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(top = 29.dp, bottom = 13.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Последние операции", color = White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text("История", color = Color(0xFFB9A5E8), fontSize = 12.sp)
+            }
+        }
+        if (txs.isEmpty()) {
+            item {
+                Text("Здесь появятся ваши операции", Modifier.padding(horizontal = 22.dp, vertical = 20.dp),
+                    color = Muted, fontSize = 13.sp)
+            }
+        } else {
+            items(txs.take(5)) { TransactionRow(it) }
+        }
+        item {
+            Text("Баланс и операции отображаются в демонстрационном режиме.",
+                Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 18.dp),
+                color = Muted.copy(alpha = .8f), fontSize = 10.sp)
+        }
     }
 }
-
 @Composable
 private fun ActionButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, action: () -> Unit, filled: Boolean, modifier: Modifier = Modifier) {
     Button(onClick = action, modifier = modifier.height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = if (filled) Purple else Color(0xFF393142)), shape = RoundedCornerShape(15.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
