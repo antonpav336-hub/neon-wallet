@@ -57,7 +57,7 @@ internal fun History(txs: List<Tx>, onTransactionClick: (Tx) -> Unit = {}) {
         Text("Движение средств и аналитика", Modifier.padding(start = 22.dp, top = 5.dp, bottom = 14.dp), color = Muted, fontSize = 12.sp)
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SummaryTile("Поступления", income, Green, Modifier.weight(1f))
-            SummaryTile("Расходы", expense, Color(0xFFFF9292), Modifier.weight(1f))
+            SummaryTile("Расходы", expense, Color(0xFFFF9A9A), Modifier.weight(1f))
         }
         OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), singleLine = true, placeholder = { Text("Поиск по операции или получателю", color = Muted) }, leadingIcon = { Icon(Icons.Default.Search, null, tint = Muted) }, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
