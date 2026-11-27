@@ -39,7 +39,7 @@ internal fun Payments(
             ) {
                 Text("Платежи и переводы", color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
-                Icon(Icons.Default.QrCodeScanner, null, tint = Purple, modifier = Modifier.size(25.dp))
+                Icon(Icons.Default.QrCodeScanner, contentDescription = "Сканировать QR", tint = Purple, modifier = Modifier.size(28.dp).clickable(onClick = onScanQr))
             }
 
             Row(
