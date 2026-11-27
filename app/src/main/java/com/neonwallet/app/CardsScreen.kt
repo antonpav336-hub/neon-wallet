@@ -49,10 +49,12 @@ internal fun Cards(frozen: Boolean, cardLimit: Long, onToggleFreeze: () -> Unit,
         Text("Мои карты", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
         Text("Управляй своими картами", Modifier.padding(start = 22.dp, top = 5.dp), color = Muted, fontSize = 13.sp)
         Spacer(Modifier.height(24.dp))
-        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(205.dp).clip(RoundedCornerShape(26.dp))
+        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(215.dp).clip(RoundedCornerShape(26.dp))
             .background(Brush.linearGradient(listOf(Color(0xFF65567D), Color(0xFF393143), Color(0xFF201D27))))
-            .border(1.dp, Color(0xFFC8B6EA).copy(alpha = .4f), RoundedCornerShape(26.dp)).padding(22.dp)) {
-            Column(Modifier.fillMaxHeight()) {
+            .border(1.dp, Color(0xFFC8B6EA).copy(alpha = .4f), RoundedCornerShape(26.dp))) {
+            Image(painterResource(R.drawable.bg_neon_surface), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.32f))
+            Box(Modifier.align(Alignment.TopEnd).offset(x = 48.dp, y = (-60).dp).size(180.dp).background(Color(0xFFD8C8F5).copy(alpha = .10f), CircleShape).blur(24.dp))
+            Column(Modifier.fillMaxHeight().padding(22.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("NEON WALLET", color = White, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     Spacer(Modifier.weight(1f)); Icon(Icons.Default.Contactless, null, tint = White)
