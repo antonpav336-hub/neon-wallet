@@ -6,6 +6,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +16,9 @@ import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -85,7 +89,10 @@ internal fun QRScannerDialog(onClose: () -> Unit, onScanned: (String) -> Unit) {
     }
 
     Surface(Modifier.fillMaxSize(), color = Bg, shape = RoundedCornerShape(0.dp)) {
-        Column(Modifier.fillMaxSize().background(Bg)) {
+        Box(Modifier.fillMaxSize().background(Bg)) {
+        Image(painterResource(R.drawable.bg_neon_qr), contentDescription = null,
+            contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.16f))
+        Column(Modifier.fillMaxSize().background(Color.Transparent)) {
             Row(
                 Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -119,6 +126,7 @@ internal fun QRScannerDialog(onClose: () -> Unit, onScanned: (String) -> Unit) {
             }
             Text("Наведите камеру на QR-код получателя или платёжной ссылки.",
                 color = Muted, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(24.dp))
+        }
         }
     }
 }
