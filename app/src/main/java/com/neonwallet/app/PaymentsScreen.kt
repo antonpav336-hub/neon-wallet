@@ -139,7 +139,7 @@ private fun PromoTile(title: String, subtitle: String, icon: ImageVector, onClic
             .border(1.dp, Purple.copy(alpha = .24f), RoundedCornerShape(22.dp))
             .clickable(onClick = onClick)
     ) {
-        Image(painterResource(R.drawable.bg_neon_surface), contentDescription = null,
+        Image(painterResource(R.drawable.bg_neon_payments), contentDescription = null,
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.26f))
         Box(Modifier.align(Alignment.TopEnd).offset(x = 28.dp, y = (-34).dp).size(95.dp)
             .background(Color(0xFFD7C5F5).copy(alpha = .10f), CircleShape))
