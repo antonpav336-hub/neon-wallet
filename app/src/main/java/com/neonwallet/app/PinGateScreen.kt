@@ -58,12 +58,12 @@ internal fun PinGateScreen(prefs: SharedPreferences, setup: Boolean, onUnlocked:
     val title = if (setup) "Создай PIN-код" else "С возвращением"
     val subtitle = if (setup && firstPin.isNotEmpty()) "Повтори PIN-код" else if (setup) "Придумай код из 4–6 цифр" else "Введи PIN-код для входа"
     Column(
-        Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF10091D), Bg, Color(0xFF090711))))
+        Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF211C2A), Bg, Color(0xFF0B0A10))))
             .padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(Modifier.size(76.dp).clip(RoundedCornerShape(25.dp)).background(Brush.linearGradient(listOf(Purple, Color(0xFF5426A6)))),
+        Box(Modifier.size(76.dp).clip(RoundedCornerShape(25.dp)).background(Brush.linearGradient(listOf(Purple, Color(0xFF74628F)))),
             contentAlignment = Alignment.Center) {
             Icon(Icons.Default.Bolt, null, tint = White, modifier = Modifier.size(43.dp))
         }
@@ -75,7 +75,7 @@ internal fun PinGateScreen(prefs: SharedPreferences, setup: Boolean, onUnlocked:
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             repeat(if (setup && firstPin.isNotEmpty()) firstPin.length else 6) { index ->
                 Box(Modifier.size(13.dp).clip(CircleShape).background(
-                    if (index < pin.length) Purple else Color(0xFF453A55)
+                    if (index < pin.length) Purple else Color(0xFF48434F)
                 ))
             }
         }
