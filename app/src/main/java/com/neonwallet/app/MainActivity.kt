@@ -16,6 +16,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateColorAsState
+import kotlinx.coroutines.delay
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -45,7 +48,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class Tx(val title: String, val date: String, val amount: Long, val incoming: Boolean, val recipient: String = "", val status: String = "Успешно", val timestamp: Long = System.currentTimeMillis())
+private data class Tx(val title: String, val date: String, val amount: Long, val incoming: Boolean, val recipient: String = "", val status: String = "Успешно", val timestamp: Long = System.currentTimeMillis(), val kind: String = if (incoming) "topup" else "transfer")
 private enum class Tab { HOME, CARDS, HISTORY, PROFILE }
 
 @Composable
@@ -76,6 +79,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
     var dialog by remember { mutableStateOf<String?>(null) }
     var txs by remember { mutableStateOf(loadTransactions(prefs)) }
     var cardFrozen by remember { mutableStateOf(prefs.getBoolean("card_frozen", false)) }
+    var cardLimit by remember { mutableLongStateOf(prefs.getLong("card_limit", 50000L)) }
     var isSubmitting by remember { mutableStateOf(false) }
     val accountEmail = remember(context) { context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE).getString("current_email", "") ?: "" }
     SideEffect {
@@ -83,7 +87,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
         txs.forEach { tx ->
             array.put(JSONObject().apply {
                 put("title", tx.title); put("date", tx.date)
-                put("amount", tx.amount); put("incoming", tx.incoming); put("recipient", tx.recipient); put("status", tx.status); put("timestamp", tx.timestamp)
+                put("amount", tx.amount); put("incoming", tx.incoming); put("recipient", tx.recipient); put("status", tx.status); put("timestamp", tx.timestamp); put("kind", tx.kind)
             })
         }
         prefs.edit().putLong("balance", balance).putString("transactions", array.toString()).apply()
@@ -98,10 +102,10 @@ private fun WalletMain(onSignOut: () -> Unit) {
                         when (screen) {
                             Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance },
                                 { dialog = "topup" }, { dialog = "transfer" }, { dialog = "withdraw" }, txs)
-                            Tab.CARDS -> Cards(cardFrozen, {
+                            Tab.CARDS -> Cards(cardFrozen, cardLimit, {
                                 cardFrozen = !cardFrozen
                                 prefs.edit().putBoolean("card_frozen", cardFrozen).apply()
-                            }) { if (canUseCard(cardFrozen)) dialog = "card_payment" }
+                            }, { newLimit -> cardLimit = newLimit.coerceAtLeast(0L); prefs.edit().putLong("card_limit", cardLimit).apply() }) { if (canUseCard(cardFrozen)) dialog = "card_payment" }
                             Tab.HISTORY -> History(txs)
                             Tab.PROFILE -> Profile(accountEmail, onSignOut)
                         }
@@ -110,8 +114,8 @@ private fun WalletMain(onSignOut: () -> Unit) {
                 BottomBar(tab) { tab = it }
             }
             dialog?.let { kind ->
-                MoneyDialog(kind, balance, cardFrozen, onClose = { dialog = null }) { amount, recipient ->
-                    if (canStartOperation(isSubmitting) && canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen)) {
+                MoneyDialog(kind, balance, cardFrozen, cardLimit, onClose = { if (!isSubmitting) dialog = null }) { amount, recipient ->
+                    if (canStartOperation(isSubmitting) && canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen, cardLimit)) {
                         isSubmitting = true
                         val incoming = kind == "topup"
                         val title = when (kind) {
@@ -123,10 +127,12 @@ private fun WalletMain(onSignOut: () -> Unit) {
                         balance += if (incoming) amount else -amount
                         val now = System.currentTimeMillis()
                         val date = java.text.SimpleDateFormat("dd MMM, HH:mm", Locale("ru")).format(java.util.Date(now))
-                        txs = (listOf(Tx(title, date, if (incoming) amount else -amount, incoming, recipient.trim(), "Успешно", now)) + txs).take(100)
+                        txs = (listOf(Tx(title, date, if (incoming) amount else -amount, incoming, recipient.trim(), "Успешно", now, kind)) + txs).take(100)
                         isSubmitting = false
+                        true
+                    } else {
+                        false
                     }
-                    dialog = null
                 }
             }
         }
@@ -236,7 +242,10 @@ private fun TransactionRow(tx: Tx) {
 }
 
 @Composable
-private fun Cards(frozen: Boolean, onToggleFreeze: () -> Unit, onPay: () -> Unit) {
+private fun Cards(frozen: Boolean, cardLimit: Long, onToggleFreeze: () -> Unit, onLimitChange: (Long) -> Unit, onPay: () -> Unit) {
+    var showDetails by remember { mutableStateOf(false) }
+    var showLimitEditor by remember { mutableStateOf(false) }
+    var limitInput by remember(cardLimit) { mutableStateOf(cardLimit.toString()) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Header()
         Text("Мои карты", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
@@ -251,7 +260,7 @@ private fun Cards(frozen: Boolean, onToggleFreeze: () -> Unit, onPay: () -> Unit
                     Spacer(Modifier.weight(1f)); Icon(Icons.Default.Contactless, null, tint = White)
                 }
                 Spacer(Modifier.weight(1f))
-                Text("••••  ••••  ••••  2048", color = White, fontSize = 19.sp, letterSpacing = 2.sp)
+                Text(if (showDetails) "4242  4242  4242  2048" else "••••  ••••  ••••  2048", color = White, fontSize = 19.sp, letterSpacing = 2.sp)
                 Spacer(Modifier.height(15.dp))
                 Row {
                     Column { Text("ВЛАДЕЛЕЦ", color = White.copy(alpha = .65f), fontSize = 9.sp); Text("NEON USER", color = White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
@@ -276,7 +285,14 @@ private fun Cards(frozen: Boolean, onToggleFreeze: () -> Unit, onPay: () -> Unit
             }
             Switch(checked = frozen, onCheckedChange = { onToggleFreeze() }, colors = SwitchDefaults.colors(checkedThumbColor = White, checkedTrackColor = Purple))
         }
-        Text("Управление картой", Modifier.padding(start = 20.dp, top = 18.dp, bottom = 10.dp), color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { showDetails = !showDetails }) { Icon(if (showDetails) Icons.Default.VisibilityOff else Icons.Default.Visibility, null); Spacer(Modifier.width(6.dp)); Text(if (showDetails) "Скрыть демо-реквизиты" else "Показать демо-реквизиты") }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) { Text("Лимит на одну оплату", color = White, fontSize = 14.sp); Text(money(cardLimit), color = Purple, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = { limitInput = cardLimit.toString(); showLimitEditor = true }) { Text("Изменить") }
+        }
+        Text("Управление картой", Modifier.padding(start = 20.dp, top = 8.dp, bottom = 10.dp), color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(onClick = onToggleFreeze, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
                 Icon(if (frozen) Icons.Default.LockOpen else Icons.Default.AcUnit, null); Spacer(Modifier.width(6.dp)); Text(if (frozen) "Разморозить" else "Заморозить")
@@ -287,6 +303,7 @@ private fun Cards(frozen: Boolean, onToggleFreeze: () -> Unit, onPay: () -> Unit
         }
         Text("Демонстрационный макет. Карта не привязана к платёжной системе; реквизиты и платежи не настоящие.", Modifier.padding(20.dp), color = Muted, fontSize = 12.sp)
     }
+    if (showLimitEditor) AlertDialog(onDismissRequest = { showLimitEditor = false }, containerColor = Panel, title = { Text("Лимит демо-карты", color = White) }, text = { OutlinedTextField(value = limitInput, onValueChange = { limitInput = it.filter(Char::isDigit).take(9) }, label = { Text("Лимит в ₽") }, singleLine = true) }, confirmButton = { TextButton(onClick = { limitInput.toLongOrNull()?.let(onLimitChange); showLimitEditor = false }) { Text("Сохранить", color = Purple) } }, dismissButton = { TextButton(onClick = { showLimitEditor = false }) { Text("Отмена", color = Muted) } })
 }
 
 @Composable
@@ -358,43 +375,117 @@ private fun BottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
 }
 
 @Composable
-private fun MoneyDialog(kind: String, balance: Long, cardFrozen: Boolean, onClose: () -> Unit, onConfirm: (Long, String) -> Unit) {
+private fun MoneyDialog(
+    kind: String,
+    balance: Long,
+    cardFrozen: Boolean,
+    cardLimit: Long,
+    onClose: () -> Unit,
+    onConfirm: (Long, String) -> Boolean
+) {
     var amount by remember { mutableStateOf("") }
     var who by remember { mutableStateOf("") }
-    val transfer = kind == "transfer" || kind == "card_payment"
+    var stage by remember { mutableStateOf("editing") }
+    var failure by remember { mutableStateOf<String?>(null) }
     val parsedAmount = amount.toLongOrNull() ?: 0L
-    val canSubmit = canSubmitMoneyOperation(kind, parsedAmount, balance, who, cardFrozen)
-    AlertDialog(onDismissRequest = onClose, containerColor = Panel,
-        title = { Text(when (kind) { "transfer" -> "Новый перевод"; "withdraw" -> "Вывод средств"; "card_payment" -> "Оплата картой"; else -> "Пополнение" }, color = White, fontWeight = FontWeight.Bold) },
+    val scope = rememberCoroutineScope()
+    val title = when (kind) { "transfer" -> "Новый перевод"; "withdraw" -> "Вывод средств"; "card_payment" -> "Оплата картой"; else -> "Пополнение" }
+    val action = when (kind) { "transfer" -> "Перевести"; "withdraw" -> "Вывести"; "card_payment" -> "Оплатить"; else -> "Пополнить" }
+    val valid = canSubmitMoneyOperation(kind, parsedAmount, balance, who, cardFrozen, cardLimit)
+    AlertDialog(
+        onDismissRequest = { if (stage != "processing") onClose() },
+        containerColor = Panel,
+        title = { Text(when (stage) { "processing" -> "Обрабатываем операцию"; "success" -> "Операция выполнена"; "error" -> "Операция отклонена"; else -> title }, color = White, fontWeight = FontWeight.Bold) },
         text = {
-            Column {
-                OutlinedTextField(value = who, onValueChange = { who = it }, label = { Text(when (kind) { "transfer" -> "Кому (демо)"; "withdraw" -> "Куда вывести (демо)"; "card_payment" -> "Магазин / назначение"; else -> "Источник (демо)" }) }, singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
-                if (kind == "transfer") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("Alex", "Мама", "Самому себе").forEach { preset ->
-                            TextButton(onClick = { who = preset }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                                Text(preset, color = Purple, fontSize = 11.sp)
+            AnimatedContent(targetState = stage, transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) }, label = "money_operation_stage") { current ->
+                when (current) {
+                    "processing" -> Column(Modifier.fillMaxWidth().padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        val pulse by animateFloatAsState(1.08f, tween(420), label = "processing_pulse")
+                        Box(Modifier.size(92.dp).graphicsLayer { scaleX = pulse; scaleY = pulse }, contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Purple, strokeWidth = 4.dp, modifier = Modifier.size(76.dp))
+                            Icon(Icons.Default.Bolt, null, tint = White, modifier = Modifier.size(30.dp))
+                        }
+                        Spacer(Modifier.height(18.dp))
+                        Text("Проверяем данные и обновляем демо-баланс…", color = Muted, fontSize = 13.sp)
+                    }
+                    "success" -> Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        OperationStatusMark(success = true)
+                        Spacer(Modifier.height(14.dp))
+                        Text("Успешно отправлено", color = Green, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text(money(parsedAmount), color = White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(if (who.isBlank()) "Демо-пополнение" else who, color = Muted, fontSize = 13.sp)
+                    }
+                    "error" -> Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        OperationStatusMark(success = false)
+                        Spacer(Modifier.height(14.dp))
+                        Text("Не удалось выполнить", color = Color(0xFFFF858D), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text(failure ?: "Операция отклонена.", color = Muted, fontSize = 13.sp)
+                    }
+                    else -> Column {
+                        OutlinedTextField(value = who, onValueChange = { who = it; failure = null }, label = { Text(when (kind) { "transfer" -> "Кому (демо)"; "withdraw" -> "Куда вывести (демо)"; "card_payment" -> "Магазин / назначение"; else -> "Источник (демо)" }) }, singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
+                        if (kind == "transfer") Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf("Alex", "Мама", "Самому себе").forEach { preset ->
+                                TextButton(onClick = { who = preset; failure = null }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text(preset, color = Purple, fontSize = 11.sp) }
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(9); failure = null }, label = { Text("Сумма в ₽") }, singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
+                        if (failure != null) Text(failure!!, color = Color(0xFFFF858D), fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+                        Text("Демо-режим: реальные деньги не перемещаются.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            when (stage) {
+                "editing" -> TextButton(onClick = {
+                    val reason = operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit)
+                    if (reason != null) { failure = reason; stage = "error" }
+                    else {
+                        stage = "processing"
+                        scope.launch {
+                            delay(820)
+                            val accepted = onConfirm(parsedAmount, who.trim())
+                            if (accepted) stage = "success"
+                            else {
+                                failure = operationFailureReason(kind, parsedAmount, balance, who, cardFrozen, cardLimit) ?: "Операция уже обрабатывается или была отклонена."
+                                stage = "error"
                             }
                         }
                     }
-                }
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(9) }, label = { Text("Сумма в ₽") }, singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
-                if (transfer && who.isNotBlank() && parsedAmount > balance) {
-                    Text("Недостаточно средств на демо-балансе.", color = Color(0xFFFF8A8A), fontSize = 11.sp)
-                } else if (transfer && who.isBlank()) {
-                    Text("Укажи получателя перевода.", color = Muted, fontSize = 11.sp)
-                } else if (amount.isNotBlank() && parsedAmount <= 0L) {
-                    Text("Введи сумму больше нуля.", color = Color(0xFFFF8A8A), fontSize = 11.sp)
-                }
-                Text("Демо-режим: реальные деньги не перемещаются.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
+                }) { Text(action, color = Purple) }
+                "success", "error" -> TextButton(onClick = onClose) { Text("Готово", color = Purple, fontWeight = FontWeight.Bold) }
+                else -> {}
             }
         },
-        confirmButton = { TextButton(enabled = canSubmit, onClick = { onConfirm(parsedAmount, who.trim()) }) { Text(when (kind) { "transfer" -> "Отправить"; "withdraw" -> "Вывести"; "card_payment" -> "Оплатить"; else -> "Добавить" }, color = Purple) } },
-        dismissButton = { TextButton(onClick = onClose) { Text("Отмена", color = Muted) } }
+        dismissButton = { if (stage == "editing" || stage == "error") TextButton(onClick = { if (stage == "error") { stage = "editing"; failure = null } else onClose() }) { Text(if (stage == "error") "Изменить" else "Отмена", color = Muted) } }
     )
+}
+
+@Composable
+private fun OperationStatusMark(success: Boolean) {
+    val progress by animateFloatAsState(if (success) 1f else 1f, tween(520), label = "status_mark_progress")
+    val tint by animateColorAsState(if (success) Green else Color(0xFFFF6675), tween(220), label = "status_mark_color")
+    val shake by animateFloatAsState(if (success) 0f else 1f, tween(360), label = "status_mark_shake")
+    Canvas(Modifier.size(88.dp).graphicsLayer {
+        val wobble = if (success) 0f else kotlin.math.sin(shake * Math.PI * 8).toFloat() * (1f - shake) * 9f
+        translationX = wobble
+        scaleX = if (success) .92f + .08f * progress else 1f
+        scaleY = if (success) .92f + .08f * progress else 1f
+    }) {
+        val stroke = 5.dp.toPx()
+        drawCircle(tint.copy(alpha = .13f), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        drawCircle(tint, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        if (success) {
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .52f), androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .43f, size.height * .68f), androidx.compose.ui.geometry.Offset(size.width * .76f, size.height * .34f), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        } else {
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .34f, size.height * .34f), androidx.compose.ui.geometry.Offset(size.width * .66f, size.height * .66f), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(tint, androidx.compose.ui.geometry.Offset(size.width * .66f, size.height * .34f), androidx.compose.ui.geometry.Offset(size.width * .34f, size.height * .66f), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        }
+    }
 }
 
 private fun money(value: Long): String = NumberFormat.getNumberInstance(Locale("ru", "RU")).format(kotlin.math.abs(value)) + " ₽"
@@ -411,7 +502,7 @@ private fun loadTransactions(prefs: android.content.SharedPreferences): List<Tx>
         val array = JSONArray(stored)
         (0 until array.length()).map { i ->
             val item = array.getJSONObject(i)
-            Tx(item.getString("title"), item.getString("date"), item.getLong("amount"), item.getBoolean("incoming"), item.optString("recipient", ""), item.optString("status", "Успешно"), item.optLong("timestamp", 0L))
+            Tx(item.getString("title"), item.getString("date"), item.getLong("amount"), item.getBoolean("incoming"), item.optString("recipient", ""), item.optString("status", "Успешно"), item.optLong("timestamp", 0L), item.optString("kind", if (item.getBoolean("incoming")) "topup" else "transfer"))
         }
     } catch (_: Exception) { emptyList() }
 }
