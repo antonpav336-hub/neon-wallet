@@ -9,5 +9,6 @@ internal fun canSubmitMoneyOperation(
     if (amount <= 0L || balance < 0L) return false
     if (kind == "transfer") return amount <= balance && recipient.isNotBlank()
     if (kind == "topup") return balance <= Long.MAX_VALUE - amount
+    if (kind == "withdraw") return amount <= balance && recipient.isNotBlank()
     return false
 }
