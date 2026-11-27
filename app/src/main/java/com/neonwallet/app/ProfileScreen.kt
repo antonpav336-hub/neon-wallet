@@ -50,7 +50,7 @@ internal fun Profile(email: String, onSignOut: () -> Unit) {
             .background(Brush.linearGradient(listOf(Color(0xFF3B3448), Panel)))
             .border(1.dp, Purple.copy(alpha = .22f), RoundedCornerShape(23.dp))) {
             Image(painterResource(R.drawable.bg_neon_profile), contentDescription = null,
-                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.22f))
+                contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().alpha(0.22f))
             Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(62.dp).clip(CircleShape)
                     .background(Brush.linearGradient(listOf(Color(0xFFD0C0EE), Color(0xFF82709D)))),
