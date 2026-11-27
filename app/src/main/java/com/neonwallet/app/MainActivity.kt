@@ -140,7 +140,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                         confirmButton = { TextButton(onClick = { dialog = null; cameraPermission.launch(android.Manifest.permission.CAMERA) }) { Text("Разрешить", color = Purple) } },
                         dismissButton = { TextButton(onClick = { dialog = null }) { Text("Позже", color = Muted) } }
                     )
-                    else -> MoneyDialog(kind, balance, cardFrozen, cardLimit, onClose = { if (!isSubmitting) dialog = null },
+                    else -> MoneyDialog(kind, balance, cardFrozen, cardLimit, onClose = { if (!isSubmitting) { dialog = null; qrRecipient = "" } },
                     onBegin = { if (canStartOperation(isSubmitting)) { isSubmitting = true; true } else false },
                     onFinish = { isSubmitting = false }, initialRecipient = qrRecipient) { amount, recipient, bank ->
                     val accepted = canSubmitMoneyOperation(kind, amount, balance, recipient, cardFrozen, cardLimit, bank = bank)
