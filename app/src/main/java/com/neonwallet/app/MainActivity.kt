@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private data class Tx(val title: String, val date: String, val amount: Long, val incoming: Boolean, val recipient: String = "", val status: String = "Успешно", val timestamp: Long = System.currentTimeMillis(), val kind: String = if (incoming) "topup" else "transfer")
-private enum class Tab { HOME, CARDS, HISTORY, PROFILE }
+private enum class Tab { HOME, PAYMENTS, CARDS, HISTORY, PROFILE }
 
 @Composable
 fun NeonWalletApp() {
@@ -103,6 +103,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                         when (screen) {
                             Tab.HOME -> Home(balance, showBalance, { showBalance = !showBalance },
                                 { dialog = "topup" }, { dialog = "transfer" }, { dialog = "withdraw" }, txs)
+                            Tab.PAYMENTS -> Payments(balance, cardFrozen, cardLimit, { dialog = "transfer" }, { dialog = "topup" }, { dialog = "withdraw" })
                             Tab.CARDS -> Cards(cardFrozen, cardLimit, {
                                 cardFrozen = !cardFrozen
                                 prefs.edit().putBoolean("card_frozen", cardFrozen).apply()
@@ -316,6 +317,42 @@ private fun SummaryTile(label: String, amount: Long, tint: Color, modifier: Modi
 }
 
 @Composable
+private fun Payments(balance: Long, cardFrozen: Boolean, cardLimit: Long, onTransfer: () -> Unit, onTopup: () -> Unit, onWithdraw: () -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Header()
+        Text("Платежи и переводы", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Все основные операции — в одном месте", Modifier.padding(start = 22.dp, top = 5.dp), color = Muted, fontSize = 12.sp)
+        Spacer(Modifier.height(18.dp))
+        Column(Modifier.padding(horizontal = 20.dp).clip(RoundedCornerShape(18.dp)).background(Panel).padding(17.dp)) {
+            Text("Доступно на демо-счёте", color = Muted, fontSize = 11.sp)
+            Text(money(balance), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
+            Text("Счёт списания · RUB", color = Muted, fontSize = 10.sp)
+        }
+        Text("Операции", Modifier.padding(start = 22.dp, top = 22.dp, bottom = 10.dp), color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        PaymentAction("Перевести", "По телефону, ID или имени получателя", Icons.Default.Send, onTransfer)
+        PaymentAction("Пополнить счёт", "Демо-зачисление на баланс", Icons.Default.AddCard, onTopup)
+        PaymentAction("Вывести средства", "Демо-операция вывода", Icons.Default.SouthWest, onWithdraw)
+        Text("Условия перед подтверждением", Modifier.padding(start = 22.dp, top = 22.dp, bottom = 10.dp), color = White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Column(Modifier.padding(horizontal = 20.dp).clip(RoundedCornerShape(18.dp)).background(Panel).padding(16.dp)) {
+            Text("Лимит оплаты картой: " + money(cardLimit), color = White, fontSize = 12.sp)
+            Divider(color = Color(0xFF30263D), modifier = Modifier.padding(vertical = 12.dp))
+            Text(if (cardFrozen) "Карта заморожена" else "Карта активна", color = if (cardFrozen) Color(0xFFFFB86B) else Green, fontSize = 12.sp)
+        }
+        Text("Комиссии и межбанковские переводы не подключены. Все операции демонстрационные.", Modifier.padding(20.dp), color = Muted, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun PaymentAction(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp).clip(RoundedCornerShape(17.dp)).background(Panel).clickable(onClick = onClick).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(43.dp).clip(RoundedCornerShape(13.dp)).background(Purple.copy(alpha = .14f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = Purple) }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) { Text(title, color = White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Text(subtitle, color = Muted, fontSize = 10.sp) }
+        Icon(Icons.Default.ChevronRight, null, tint = Muted)
+    }
+}
+
+@Composable
 private fun History(txs: List<Tx>) {
     var query by remember { mutableStateOf("") }
     var selectedKind by remember { mutableStateOf("all") }
@@ -371,11 +408,11 @@ private fun Profile(email: String, onSignOut: () -> Unit) {
 @Composable
 private fun BottomBar(selected: Tab, onSelect: (Tab) -> Unit) {
     Row(Modifier.fillMaxWidth().background(Color(0xFF100D18)).navigationBarsPadding().padding(horizontal = 8.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceAround) {
-        listOf(Triple(Tab.HOME, Icons.Default.Home, "Главная"), Triple(Tab.CARDS, Icons.Default.CreditCard, "Карты"),
-            Triple(Tab.HISTORY, Icons.Default.ReceiptLong, "История"), Triple(Tab.PROFILE, Icons.Default.Person, "Профиль")).forEach { (tab, icon, label) ->
+        listOf(Triple(Tab.HOME, Icons.Default.Home, "Главная"), Triple(Tab.PAYMENTS, Icons.Default.SwapHoriz, "Платежи"),
+            Triple(Tab.CARDS, Icons.Default.CreditCard, "Карты"), Triple(Tab.HISTORY, Icons.Default.ReceiptLong, "История"), Triple(Tab.PROFILE, Icons.Default.Person, "Профиль")).forEach { (tab, icon, label) ->
             Column(Modifier.weight(1f).clip(RoundedCornerShape(13.dp)).clickable { onSelect(tab) }.padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(icon, null, tint = if (selected == tab) Purple else Muted, modifier = Modifier.size(21.dp))
-                Spacer(Modifier.height(3.dp)); Text(label, color = if (selected == tab) Purple else Muted, fontSize = 10.sp, fontWeight = if (selected == tab) FontWeight.Bold else FontWeight.Normal)
+                Icon(icon, null, tint = if (selected == tab) Purple else Muted, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.height(3.dp)); Text(label, color = if (selected == tab) Purple else Muted, fontSize = 9.sp, fontWeight = if (selected == tab) FontWeight.Bold else FontWeight.Normal)
             }
         }
     }
