@@ -134,8 +134,7 @@ internal fun QRScannerDialog(onClose: () -> Unit, onScanned: (String) -> Unit) {
             Spacer(Modifier.height(24.dp))
             Text("Наведите камеру на код", color = White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
             Text(
-                "Расположите QR-код внутри рамки — мы
-автоматически распознаем его",
+                "Расположите QR-код внутри рамки — мы автоматически распознаем его",
                 color = Muted, fontSize = 13.sp, lineHeight = 19.sp,
                 modifier = Modifier.padding(top = 8.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
