@@ -76,11 +76,11 @@ fun NeonWalletApp() {
             }
             dialog?.let { kind ->
                 MoneyDialog(kind, balance, onClose = { dialog = null }) { amount, recipient ->
-                    if (amount > 0 && (kind == "topup" || amount <= balance)) {
+                    if (canSubmitMoneyOperation(kind, amount, balance, recipient)) {
                         val incoming = kind == "topup"
                         balance += if (incoming) amount else -amount
-                        txs = listOf(Tx(if (incoming) "Демо-пополнение" else "Перевод · $recipient",
-                            "Только что", if (incoming) amount else -amount, incoming)) + txs
+                        txs = (listOf(Tx(if (incoming) "Демо-пополнение" else "Перевод · $recipient",
+                            "Только что", if (incoming) amount else -amount, incoming)) + txs).take(100)
                     }
                     dialog = null
                 }
