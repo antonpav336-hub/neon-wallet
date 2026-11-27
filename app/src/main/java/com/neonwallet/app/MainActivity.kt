@@ -25,7 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalContext\nimport androidx.lifecycle.Lifecycle\nimport androidx.lifecycle.LifecycleEventObserver\nimport androidx.lifecycle.compose.LocalLifecycleOwner
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.compose.ui.*
@@ -48,16 +48,29 @@ class MainActivity : ComponentActivity() {
 fun NeonWalletApp() {
     val context = LocalContext.current
     val authPrefs = remember(context) { context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE) }
+    val lifecycleOwner = LocalLifecycleOwner.current
     var signedIn by remember { mutableStateOf(authPrefs.getBoolean("signed_in", false)) }
+    var pinUnlocked by remember { mutableStateOf(false) }
+    DisposableEffect(lifecycleOwner, signedIn) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && signedIn) pinUnlocked = false
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     if (!signedIn) {
         AuthScreen(authPrefs) {
             authPrefs.edit().putBoolean("signed_in", true).apply()
             signedIn = true
+            pinUnlocked = false
         }
+    } else if (!pinUnlocked) {
+        PinGateScreen(authPrefs, setup = !authPrefs.contains("pin_hash")) { pinUnlocked = true }
     } else {
         WalletMain {
             authPrefs.edit().putBoolean("signed_in", false).apply()
             signedIn = false
+            pinUnlocked = false
         }
     }
 }
@@ -121,8 +134,8 @@ private fun WalletMain(onSignOut: () -> Unit) {
                     if (accepted) {
                         val incoming = kind == "topup"
                         val title = when (kind) {
-                            "topup" -> "Демо-пополнение"
-                            "withdraw" -> "Демо-вывод"
+                            "topup" -> "Пополнение"
+                            "withdraw" -> "Вывод"
                             "card_payment" -> "Оплата картой · $recipient"
                             else -> "Перевод · $recipient"
                         }
@@ -153,7 +166,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                     },
                     confirmButton = { TextButton(onClick = { selectedReceipt = null }) { Text("Готово", color = Purple) } },
                     dismissButton = { TextButton(onClick = {
-                        val receipt = "NEON WALLET · ДЕМО-ЧЕК\n${tx.title}\nСумма: ${money(tx.amount)}\nПолучатель: ${tx.recipient}\nБанк: ${tx.bank}\nДата: ${tx.date}\nID: ${tx.operationId}\nРеальный платёж не выполнялся."
+                        val receipt = "NEON WALLET · ДЕМО-ЧЕК\n${tx.title}\nСумма: ${money(tx.amount)}\nПолучатель: ${tx.recipient}\nБанк: ${tx.bank}\nДата: ${tx.date}\nID: ${tx.operationId}"
                         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, receipt) }, "Поделиться чеком"))
                     }) { Text("Поделиться", color = Muted) } }
                 )
