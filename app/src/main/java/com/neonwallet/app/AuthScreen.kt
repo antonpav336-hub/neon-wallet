@@ -48,7 +48,8 @@ internal fun AuthScreen(prefs: android.content.SharedPreferences, onSuccess: () 
     var error by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF211C2A), Bg, Color(0xFF0B0A10))))) {\n        Image(painterResource(R.drawable.bg_neon_auth), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.28f))
+    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF211C2A), Bg, Color(0xFF0B0A10))))) {
+        Image(painterResource(R.drawable.bg_neon_auth), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.28f))
         Box(Modifier.align(Alignment.TopEnd).offset(x = 65.dp, y = (-65).dp).size(240.dp).background(Purple.copy(alpha = .14f), CircleShape).blur(65.dp))
         Box(Modifier.align(Alignment.BottomStart).offset(x = (-80).dp, y = 80.dp).size(220.dp).background(Color(0xFF74628F).copy(alpha = .16f), CircleShape).blur(60.dp))
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 26.dp),
