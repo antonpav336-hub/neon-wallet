@@ -370,6 +370,15 @@ private fun MoneyDialog(kind: String, balance: Long, cardFrozen: Boolean, onClos
             Column {
                 OutlinedTextField(value = who, onValueChange = { who = it }, label = { Text(when (kind) { "transfer" -> "Кому (демо)"; "withdraw" -> "Куда вывести (демо)"; "card_payment" -> "Магазин / назначение"; else -> "Источник (демо)" }) }, singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
+                if (kind == "transfer") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("Alex", "Мама", "Самому себе").forEach { preset ->
+                            TextButton(onClick = { who = preset }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                                Text(preset, color = Purple, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value = amount, onValueChange = { amount = it.filter(Char::isDigit).take(9) }, label = { Text("Сумма в ₽") }, singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(focusedTextColor = White, unfocusedTextColor = White, focusedBorderColor = Purple, unfocusedBorderColor = Muted, focusedLabelColor = Purple, unfocusedLabelColor = Muted))
