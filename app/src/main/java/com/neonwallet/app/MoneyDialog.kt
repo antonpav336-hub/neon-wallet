@@ -364,6 +364,102 @@ internal fun MoneyDialog(
     }
 }
 
+@Composable
+private fun RecipientPickerScreen(
+    contacts: List<Pair<String, String>>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    permissionGranted: Boolean,
+    onRequestPermission: () -> Unit,
+    onSelect: (String, String) -> Unit
+) {
+    val filtered = remember(contacts, query) {
+        if (query.isBlank()) contacts else contacts.filter {
+            it.first.contains(query.trim(), ignoreCase = true) ||
+                it.second.filter(Char::isDigit).contains(query.filter(Char::isDigit))
+        }
+    }
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 22.dp, bottom = 20.dp)) {
+            Text("ШАГ 01 · ПОЛУЧАТЕЛЬ", color = Purple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Text("Кому отправим?", color = White, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Найди человека по имени или номеру телефона", color = Muted, fontSize = 14.sp,
+                modifier = Modifier.padding(top = 7.dp, bottom = 22.dp))
+            OutlinedTextField(
+                value = query, onValueChange = onQueryChange, modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Имя или номер телефона") },
+                leadingIcon = { Icon(Icons.Default.Search, null, tint = Purple) },
+                trailingIcon = { if (query.isNotBlank()) IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Default.Close, null, tint = Muted)
+                } },
+                singleLine = true, shape = RoundedCornerShape(18.dp), colors = neonFieldColors()
+            )
+            Spacer(Modifier.height(22.dp))
+            Text(if (query.isBlank()) "Контакты" else "Результаты поиска", color = White,
+                fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            if (!permissionGranted) {
+                EmptyRecipientState("Нужен доступ к контактам",
+                    "Разреши доступ, чтобы выбрать получателя из телефонной книги.",
+                    "Разрешить доступ", onRequestPermission)
+            } else if (filtered.isEmpty()) {
+                EmptyRecipientState(
+                    if (contacts.isEmpty()) "Контактов пока нет" else "Ничего не найдено",
+                    if (contacts.isEmpty()) "В телефонной книге не найдено контактов с номерами." else "Проверь имя или номер и попробуй ещё раз.",
+                    if (contacts.isEmpty()) "Обновить контакты" else "Очистить поиск",
+                    { if (contacts.isEmpty()) onRequestPermission() else onQueryChange("") }
+                )
+            } else {
+                filtered.forEachIndexed { index, item ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp))
+                            .background(if (index % 2 == 0) Panel else Color.Transparent)
+                            .clickable { onSelect(item.first, item.second) }
+                            .padding(horizontal = 13.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(46.dp).clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(Purple.copy(alpha = .45f), Color(0xFF51445F)))),
+                            contentAlignment = Alignment.Center) {
+                            Text(item.first.firstOrNull()?.uppercase() ?: "?", color = White,
+                                fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(13.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(item.first, color = White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(item.second, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
+                        }
+                        Icon(Icons.Default.ChevronRight, null, tint = Purple)
+                    }
+                    if (index != filtered.lastIndex) Spacer(Modifier.height(5.dp))
+                }
+            }
+        }
+        Text("Контакты используются только для выбора получателя на этом устройстве.",
+            color = Muted.copy(alpha = .7f), fontSize = 10.sp,
+            modifier = Modifier.navigationBarsPadding().padding(bottom = 14.dp, top = 6.dp))
+    }
+}
+
+@Composable
+private fun EmptyRecipientState(title: String, description: String, button: String, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Panel).padding(22.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(56.dp).clip(CircleShape).background(Purple.copy(alpha = .16f)),
+            contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Person, null, tint = Purple, modifier = Modifier.size(27.dp))
+        }
+        Spacer(Modifier.height(13.dp))
+        Text(title, color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(description, color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 7.dp))
+        TextButton(onClick = onClick, modifier = Modifier.padding(top = 8.dp)) {
+            Text(button, color = Purple, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
 private fun readPhoneContacts(context: android.content.Context): List<Pair<String, String>> {
     val result = mutableListOf<Pair<String, String>>()
     val cursor = context.contentResolver.query(
