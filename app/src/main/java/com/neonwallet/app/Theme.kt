@@ -37,7 +37,7 @@ import java.text.NumberFormat
 import java.util.Locale
 
 
-private val Bg = Color(0xFF090711)
+internal val Bg = Color(0xFF090711)
 private val Panel = Color(0xFF171323)
 private val Purple = Color(0xFF9B5CFF)
 private val Muted = Color(0xFF9B94AA)
