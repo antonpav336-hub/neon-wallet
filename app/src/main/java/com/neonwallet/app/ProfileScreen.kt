@@ -30,6 +30,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
@@ -43,13 +45,27 @@ internal fun Profile(email: String, onSignOut: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Header()
         Text("Профиль", Modifier.padding(horizontal = 22.dp), color = White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(24.dp))
-        Box(Modifier.align(Alignment.CenterHorizontally).size(82.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Purple, Color(0xFF5426A6))), CircleShape), contentAlignment = Alignment.Center) {
-            Text("N", color = White, fontSize = 35.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(20.dp))
+        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(23.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF3B3448), Panel)))
+            .border(1.dp, Purple.copy(alpha = .22f), RoundedCornerShape(23.dp))) {
+            Image(painterResource(R.drawable.bg_neon_surface), contentDescription = null,
+                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(0.22f))
+            Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(62.dp).clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(Color(0xFFD0C0EE), Color(0xFF82709D)))),
+                    contentAlignment = Alignment.Center) {
+                    Text("N", color = Color(0xFF211A2B), fontSize = 29.sp, fontWeight = FontWeight.Black)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("NEON USER", color = White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Text(email.ifBlank { "NEON ID" }, color = Muted, fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 4.dp))
+                }
+                Icon(Icons.Default.ChevronRight, null, tint = Muted)
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        Text("NEON USER", Modifier.align(Alignment.CenterHorizontally), color = White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-        Text(email.ifBlank { "NEON ID" }, Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp), color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(28.dp))
         val sections = listOf(
             Triple("Личные данные", Icons.Default.Person, "personal"),
