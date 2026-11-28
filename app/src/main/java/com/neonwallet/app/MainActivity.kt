@@ -38,6 +38,9 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.*
 import java.text.NumberFormat
 import java.util.Locale
@@ -113,6 +116,10 @@ private fun WalletMain(onSignOut: () -> Unit) {
     var cardLimit by remember(accountKey) { mutableLongStateOf(prefs.getLong("card_limit", 50000L)) }
     var isSubmitting by remember { mutableStateOf(false) }
     var selectedReceipt by remember { mutableStateOf<Tx?>(null) }
+    var casinoRequests by remember { mutableStateOf(emptyList<JSONObject>()) }
+    var selectedCasinoRequest by remember { mutableStateOf<JSONObject?>(null) }
+    var casinoApprovalPin by remember { mutableStateOf("") }
+    var casinoApprovalError by remember { mutableStateOf("") }
     suspend fun refreshServerData() {
         val data = withContext(Dispatchers.IO) {
             Triple(WalletApi.wallet(token), WalletApi.transactions(token), WalletApi.settings(token))
@@ -138,13 +145,24 @@ private fun WalletMain(onSignOut: () -> Unit) {
                 item.optString("id").take(12)
             )
         }
+        val pending = withContext(Dispatchers.IO) { WalletApi.pendingCasinoDeposits(token) }
+        val requestItems = pending.optJSONArray("items") ?: JSONArray()
+        casinoRequests = (0 until requestItems.length()).map { requestItems.getJSONObject(it) }
+        if (selectedCasinoRequest == null && casinoRequests.isNotEmpty()) {
+            selectedCasinoRequest = casinoRequests.first()
+            casinoApprovalPin = ""
+            casinoApprovalError = ""
+        }
     }
     LaunchedEffect(token) {
-        try {
-            refreshServerData()
-            serverMessage = null
-        } catch (e: Exception) {
-            serverMessage = e.message ?: "Не удалось загрузить данные с сервера."
+        while (true) {
+            try {
+                refreshServerData()
+                serverMessage = null
+            } catch (e: Exception) {
+                serverMessage = e.message ?: "Не удалось загрузить данные с сервера."
+            }
+            delay(12000)
         }
     }
     SideEffect {
@@ -254,6 +272,94 @@ private fun WalletMain(onSignOut: () -> Unit) {
                     title = { Text("NEON WALLET", color = White, fontWeight = FontWeight.Bold) },
                     text = { Text(message, color = Muted) },
                     confirmButton = { TextButton(onClick = { serverMessage = null }) { Text("Понятно", color = Purple) } }
+                )
+            }
+            selectedCasinoRequest?.let { request ->
+                val requestId = request.optString("request_id")
+                val amountKopecks = request.optLong("amount_kopecks", 0L)
+                val amountLabel = NumberFormat.getCurrencyInstance(Locale("ru", "RU")).format(amountKopecks / 100.0)
+                AlertDialog(
+                    onDismissRequest = { selectedCasinoRequest = null; casinoApprovalPin = ""; casinoApprovalError = "" },
+                    containerColor = Panel,
+                    title = { Text("Запрос от NEON CASINO", color = White, fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Перевести $amountLabel с основного баланса NEON WALLET на игровой баланс казино?", color = White)
+                            Text("Списание произойдёт только после твоего подтверждения. Запрос действует 15 минут.", color = Muted, fontSize = 12.sp)
+                            OutlinedTextField(
+                                value = casinoApprovalPin,
+                                onValueChange = { if (it.length <= 6 && it.all(Char::isDigit)) casinoApprovalPin = it },
+                                label = { Text("Подтверди PIN-код") },
+                                singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = White, unfocusedTextColor = White,
+                                    focusedBorderColor = Purple, unfocusedBorderColor = Muted,
+                                    focusedLabelColor = Purple, unfocusedLabelColor = Muted
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (casinoApprovalError.isNotBlank()) Text(casinoApprovalError, color = Color(0xFFFF858D), fontSize = 12.sp)
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            enabled = casinoApprovalPin.length >= 4 && !isSubmitting,
+                            onClick = {
+                                if (!verifyPin(authPrefs, casinoApprovalPin)) {
+                                    casinoApprovalPin = ""
+                                    casinoApprovalError = "Неверный PIN-код. Проверь и попробуй ещё раз."
+                                } else {
+                                    isSubmitting = true
+                                    scope.launch {
+                                        try {
+                                            val result = withContext(Dispatchers.IO) {
+                                                WalletApi.approveCasinoDeposit(token, requestId)
+                                            }
+                                            casinoApprovalPin = ""
+                                            casinoApprovalError = ""
+                                            selectedCasinoRequest = null
+                                            refreshServerData()
+                                            serverMessage = if (result.optString("status") == "approved")
+                                                "Перевод подтверждён. NEON CASINO пополнен на $amountLabel."
+                                            else "Срок действия запроса истёк. Деньги не списаны."
+                                        } catch (e: Exception) {
+                                            casinoApprovalPin = ""
+                                            casinoApprovalError = e.message ?: "Не удалось подтвердить перевод."
+                                        } finally {
+                                            isSubmitting = false
+                                        }
+                                    }
+                                }
+                            }
+                        ) { Text(if (isSubmitting) "Обработка…" else "Подтвердить перевод", color = Purple) }
+                    },
+                    dismissButton = {
+                        Row {
+                            TextButton(
+                                enabled = !isSubmitting,
+                                onClick = {
+                                    isSubmitting = true
+                                    scope.launch {
+                                        try {
+                                            withContext(Dispatchers.IO) { WalletApi.rejectCasinoDeposit(token, requestId) }
+                                            selectedCasinoRequest = null
+                                            casinoApprovalPin = ""
+                                            casinoApprovalError = ""
+                                            refreshServerData()
+                                        } catch (e: Exception) {
+                                            casinoApprovalError = e.message ?: "Не удалось отклонить запрос."
+                                        } finally { isSubmitting = false }
+                                    }
+                                }
+                            ) { Text("Отклонить", color = Color(0xFFFF8C9B)) }
+                            TextButton(
+                                enabled = !isSubmitting,
+                                onClick = { selectedCasinoRequest = null; casinoApprovalPin = ""; casinoApprovalError = "" }
+                            ) { Text("Позже", color = Muted) }
+                        }
+                    }
                 )
             }
             selectedReceipt?.let { tx ->
