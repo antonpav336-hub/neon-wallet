@@ -97,6 +97,11 @@ private fun WalletMain(onSignOut: () -> Unit) {
     val authPrefs = remember(context) { context.getSharedPreferences("neon_auth_demo", android.content.Context.MODE_PRIVATE) }
     val accountEmail = authPrefs.getString("current_email", "") ?: ""
     val token = authPrefs.getString("access_token", null).orEmpty()
+    val deviceId = remember(accountEmail) {
+        authPrefs.getString("wallet_device_id", null) ?: java.util.UUID.randomUUID().toString().also {
+            authPrefs.edit().putString("wallet_device_id", it).apply()
+        }
+    }
     val accountId = authPrefs.getString("account_id", "").orEmpty()
     val accountFullName = authPrefs.getString("name_$accountEmail", accountEmail.substringBefore("@")) ?: accountEmail.substringBefore("@")
     val accountKey = remember(accountEmail) { android.util.Base64.encodeToString(accountEmail.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING) }
@@ -154,12 +159,19 @@ private fun WalletMain(onSignOut: () -> Unit) {
             casinoApprovalError = ""
         }
     }
-    LaunchedEffect(token) {
+    LaunchedEffect(token, deviceId) {
+        var deviceRegistered = false
         while (true) {
             try {
+                if (!deviceRegistered) {
+                    val publicKey = withContext(Dispatchers.IO) { WalletDeviceSigner.publicKeyBase64() }
+                    withContext(Dispatchers.IO) { WalletApi.registerDevice(token, deviceId, publicKey) }
+                    deviceRegistered = true
+                }
                 refreshServerData()
                 serverMessage = null
             } catch (e: Exception) {
+                deviceRegistered = false
                 serverMessage = e.message ?: "Не удалось загрузить данные с сервера."
             }
             delay(12000)
@@ -314,8 +326,13 @@ private fun WalletMain(onSignOut: () -> Unit) {
                                     isSubmitting = true
                                     scope.launch {
                                         try {
+                                            val challenge = request.optString("approval_challenge")
+                                            val signedMessage = "NEON-CASINO-DEPOSIT\\n$requestId\\n$amountKopecks\\n$challenge"
+                                            val signature = withContext(Dispatchers.IO) {
+                                                WalletDeviceSigner.signBase64(signedMessage)
+                                            }
                                             val result = withContext(Dispatchers.IO) {
-                                                WalletApi.approveCasinoDeposit(token, requestId)
+                                                WalletApi.approveCasinoDeposit(token, requestId, deviceId, signature)
                                             }
                                             casinoApprovalPin = ""
                                             casinoApprovalError = ""
