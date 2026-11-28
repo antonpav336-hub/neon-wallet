@@ -100,7 +100,7 @@ class AdminCreditRequest(BaseModel):
     account_id: str = Field(min_length=6, max_length=12, pattern=r"^[0-9]+$")
     amount_kopecks: int = Field(gt=0, le=100_000_000)
     description: str = Field(default="Административное пополнение", min_length=1, max_length=140)
-    request_key: str = Field(min_length=16, max_length=80, pattern=r"^[a-zA-Z0-9_-]+$")
+    request_key: str = Field(min_length=16, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")
 
 
 def issue_token(user_id: int) -> str:
