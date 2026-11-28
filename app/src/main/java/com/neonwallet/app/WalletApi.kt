@@ -45,9 +45,16 @@ internal object WalletApi {
 
     fun wallet(token: String) = request("GET", "/v1/wallet", token)
     fun transactions(token: String) = request("GET", "/v1/transactions?limit=100", token)
+    fun registerDevice(token: String, deviceId: String, publicKey: String) = request(
+        "POST", "/v1/wallet/devices/register", token,
+        JSONObject().put("device_id", deviceId).put("public_key", publicKey)
+    )
     fun pendingCasinoDeposits(token: String) = request("GET", "/v1/casino/deposit-requests/pending", token)
-    fun approveCasinoDeposit(token: String, requestId: String) =
-        request("POST", "/v1/casino/deposit-requests/$requestId/approve", token, JSONObject())
+    fun approveCasinoDeposit(token: String, requestId: String, deviceId: String, signature: String) =
+        request(
+            "POST", "/v1/casino/deposit-requests/$requestId/approve", token,
+            JSONObject().put("device_id", deviceId).put("signature", signature)
+        )
     fun rejectCasinoDeposit(token: String, requestId: String) =
         request("POST", "/v1/casino/deposit-requests/$requestId/reject", token, JSONObject())
     fun settings(token: String) = request("GET", "/v1/wallet/settings", token)
