@@ -327,7 +327,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                                     scope.launch {
                                         try {
                                             val challenge = request.optString("approval_challenge")
-                                            val signedMessage = "NEON-CASINO-DEPOSIT\\n$requestId\\n$amountKopecks\\n$challenge"
+                                            val signedMessage = "NEON-CASINO-DEPOSIT\n$requestId\n$amountKopecks\n$challenge"
                                             val signature = withContext(Dispatchers.IO) {
                                                 WalletDeviceSigner.signBase64(signedMessage)
                                             }
