@@ -39,7 +39,7 @@ import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.*
 import java.text.NumberFormat
@@ -288,7 +288,7 @@ private fun WalletMain(onSignOut: () -> Unit) {
                             Text("Списание произойдёт только после твоего подтверждения. Запрос действует 15 минут.", color = Muted, fontSize = 12.sp)
                             OutlinedTextField(
                                 value = casinoApprovalPin,
-                                onValueChange = { if (it.length <= 6 && it.all(Char::isDigit)) casinoApprovalPin = it },
+                                onValueChange = { if (it.length <= 6 && it.all { char -> char.isDigit() }) casinoApprovalPin = it },
                                 label = { Text("Подтверди PIN-код") },
                                 singleLine = true,
                                 visualTransformation = PasswordVisualTransformation(),
